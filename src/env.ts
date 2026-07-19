@@ -3,6 +3,8 @@ import { z } from "zod";
 
 export const env = createEnv({
   server: {
+    OPENROUTER_API_KEY: z.string().min(1),
+    OPENROUTER_MODEL: z.string().min(1).default("cohere/north-mini-code:free"),
     KAPRUKA_MCP_URL: z.string().min(1).default("https://mcp.kapruka.com/mcp"),
   },
   shared: {

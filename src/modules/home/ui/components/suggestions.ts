@@ -6,24 +6,38 @@ export interface Suggestion {
 
 export const suggestions: Suggestion[] = [
   {
-    id: "birthday-cake",
-    label: "Order Birthday Cake",
-    query:
-      "Recommend a chocolate birthday cake for delivery in Colombo tomorrow",
+    id: "browse-categories",
+    label: "Browse Categories",
+    query: "What shopping categories do you have?",
   },
   {
-    id: "flowers",
-    label: "Fresh Flowers",
-    query: "Show me some fresh red flower bouquets under 5000 LKR",
+    id: "search-toys",
+    label: "Search Products",
+    query: "Search for soft teddy bear toys under 10000 LKR",
+  },
+  {
+    id: "product-details",
+    label: "Get Product Details",
+    query: "Show details of the chocolate gateau cake with ID 10834",
+  },
+  {
+    id: "check-cities",
+    label: "Check Delivery Cities",
+    query: "Do you deliver to Kandy or Batticaloa?",
+  },
+  {
+    id: "check-delivery",
+    label: "Delivery Fee Quote",
+    query: "How much is the delivery fee for a cake to Negombo on Friday?",
+  },
+  {
+    id: "create-order",
+    label: "Create Guest Order",
+    query: "Help me buy a red rose bouquet for delivery in Colombo tomorrow",
   },
   {
     id: "track-order",
-    label: "Track Order",
-    query: "Track my order VIMP34456",
-  },
-  {
-    id: "gift-vouchers",
-    label: "Gift Vouchers",
-    query: "Suggest some popular gift vouchers for a friend",
+    label: "Track Order Status",
+    query: "Track my order number 239485",
   },
 ];

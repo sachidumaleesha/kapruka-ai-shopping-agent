@@ -10,7 +10,7 @@ const Page = async ({ params }: PageProps) => {
   const { id } = await params;
   return (
     <Suspense fallback={<FullScreenLoader label="Loading chat..." />}>
-      <ChatView chatId={id} />
+      <ChatView key={id} chatId={id} />
     </Suspense>
   );
 };
