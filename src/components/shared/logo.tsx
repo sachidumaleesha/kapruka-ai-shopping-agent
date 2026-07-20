@@ -9,8 +9,8 @@ export const Logo = () => {
       <Image
         src="/assets/logo.png"
         alt="Logo"
-        width={32}
-        height={32}
+        width={45}
+        height={45}
         className="rounded-md"
       />
     </Link>

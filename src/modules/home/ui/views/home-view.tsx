@@ -9,6 +9,8 @@ import { suggestions } from "../components/suggestions";
 
 import { useRouter } from "next/navigation";
 import { generateUUID } from "@/lib/uuid";
+import { generateSlug } from "random-word-slugs";
+import { Logo } from "@/components/shared/logo";
 
 export const HomeView = () => {
   const router = useRouter();
@@ -28,14 +30,17 @@ export const HomeView = () => {
     if (!input.trim()) return;
 
     const newId = generateUUID();
+    const chatTitle = generateSlug(2, { format: "title" });
     if (typeof window !== "undefined") {
       sessionStorage.setItem(`pending-query-${newId}`, input);
+      localStorage.setItem(`chat-title-${newId}`, chatTitle);
     }
     router.push(`/chat/${newId}`);
   };
 
   return (
     <div className="flex flex-col items-center justify-center p-4 w-full max-w-xl mx-auto min-h-screen gap-4">
+      <Logo />
       <h1 className="text-2xl md:text-3xl font-semibold tracking-tight text-foreground text-center">
         What are you shopping for today?
       </h1>
