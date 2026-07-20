@@ -56,7 +56,7 @@ export const ShoppingCart = () => {
     return (
       <Drawer>
         <DrawerTrigger asChild>{trigger}</DrawerTrigger>
-        <DrawerContent className="p-4">
+        <DrawerContent className="p-4 h-[75vh]">
           <DrawerHeader className="text-left px-0">
             <DrawerTitle>{title}</DrawerTitle>
             <DrawerDescription>{description}</DrawerDescription>
