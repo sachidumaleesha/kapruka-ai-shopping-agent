@@ -1,24 +1,32 @@
 import type { Metadata } from "next";
+import { NextIntlClientProvider } from "next-intl";
+import { getLocale, getMessages, getTranslations } from "next-intl/server";
 
 import "./styles/globals.css";
-import { cn } from "@/lib/utils";
 import { geistMono, geistSans, manrope } from "@/constants/fonts";
+import { cn } from "@/lib/utils";
 
 import { AppProvider } from "@/providers/app-provider";
 
-export const metadata: Metadata = {
-  title: "AI Shopping Agent - Kapruka",
-  description: "Kapruka AI Shopping Agent",
+export const generateMetadata = async (): Promise<Metadata> => {
+  const t = await getTranslations("Metadata");
+
+  return {
+    title: t("title"),
+    description: t("description"),
+  };
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const [locale, messages] = await Promise.all([getLocale(), getMessages()]);
+
   return (
     <html
-      lang="en"
+      lang={locale}
       className={cn(
         "h-full",
         "antialiased",
@@ -30,7 +38,9 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <body className="min-h-full flex flex-col" suppressHydrationWarning>
-        <AppProvider>{children}</AppProvider>
+        <NextIntlClientProvider locale={locale} messages={messages}>
+          <AppProvider>{children}</AppProvider>
+        </NextIntlClientProvider>
       </body>
     </html>
   );

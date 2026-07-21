@@ -1,12 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
-
-import { ThemeProvider } from "./theme-provider";
-import { TooltipProvider } from "@/components/ui/tooltip";
-
 import NextTopLoader from "nextjs-toploader";
+import { useEffect, useState } from "react";
 import { TailwindIndicator } from "@/components/shared/tailwind-indicator";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { ThemeProvider } from "./theme-provider";
 
 interface Props {
   children: React.ReactNode;
