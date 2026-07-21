@@ -192,7 +192,6 @@ export const ChatForm = ({
         <PromptInputBody>
           <PromptInputTextarea
             aria-label={t("inputLabel")}
-            autoFocus
             className="min-h-20 max-h-20 px-4 pt-4 pb-2 text-base leading-6 md:text-base scrollbar-hide resize-none"
             disabled={disabled}
             onChange={(event) => onValueChange(event.currentTarget.value)}

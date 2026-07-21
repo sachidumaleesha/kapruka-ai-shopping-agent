@@ -42,6 +42,16 @@
       }
     }
   },
+  "Chat": {
+    "backHome": "මුල් පිටුවට යන්න",
+    "newChat": "නව සංවාදය",
+    "loading": "සංවාදය පූරණය වෙමින්...",
+    "messagesLabel": "සංවාද පණිවිඩ",
+    "userMessage": "ඔබගේ පණිවිඩය",
+    "assistantMessage": "සහායකයාගේ පණිවිඩය",
+    "attachedImage": "අමුණා ඇති පින්තූරය",
+    "scrollToLatest": "නවතම පණිවිඩයට යන්න"
+  },
   "ChatForm": {
     "formLabel": "සාප්පු සහායක විමසුම",
     "inputLabel": "ඔබ සොයන්නේ මොනවාද?",

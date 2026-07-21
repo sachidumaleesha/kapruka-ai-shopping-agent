@@ -42,6 +42,16 @@
       }
     }
   },
+  "Chat": {
+    "backHome": "Back to home",
+    "newChat": "New conversation",
+    "loading": "Loading chat...",
+    "messagesLabel": "Conversation messages",
+    "userMessage": "Your message",
+    "assistantMessage": "Assistant message",
+    "attachedImage": "Attached image",
+    "scrollToLatest": "Scroll to latest message"
+  },
   "ChatForm": {
     "formLabel": "Shopping assistant prompt",
     "inputLabel": "What are you shopping for?",
