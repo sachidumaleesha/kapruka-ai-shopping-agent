@@ -1,75 +1,131 @@
 "use client";
 
-import { useState } from "react";
-
-import { Button } from "@/components/ui/button";
-import { ChatForm } from "../components/chat-form";
-
-import { suggestions } from "../components/suggestions";
-
 import { useRouter } from "next/navigation";
-import { generateUUID } from "@/lib/uuid";
-import { generateSlug } from "random-word-slugs";
+import { useTranslations } from "next-intl";
+import { useRef, useState } from "react";
+
 import { Logo } from "@/components/shared/logo";
+import { Button } from "@/components/ui/button";
+import { useVisualViewport } from "@/hooks/use-visual-viewport";
+import { createChatSession, saveChatSession } from "@/lib/chat-storage";
+import { setPendingChatMessage } from "@/lib/pending-chat-message";
+import { cn } from "@/lib/utils";
+import {
+  ChatForm,
+  type LocalizedPromptInputMessage,
+} from "@/modules/shared/chat-form";
+import { suggestionIds } from "../components/suggestions";
 
 export const HomeView = () => {
   const router = useRouter();
+  const t = useTranslations("Home");
   const [input, setInput] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const { height: viewportHeight, isKeyboardOpen } = useVisualViewport();
 
-  const handleInputChange = (
-    e:
-      | React.ChangeEvent<HTMLTextAreaElement>
-      | React.ChangeEvent<HTMLInputElement>,
-  ) => {
-    setInput(e.target.value);
+  const handleSuggestionClick = (query: string) => {
+    setInput(query);
+    requestAnimationFrame(() => textareaRef.current?.focus());
   };
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    if (!input.trim()) return;
+  const handleSubmit = ({
+    text,
+    files,
+    locale,
+  }: LocalizedPromptInputMessage) => {
+    const chatId = crypto.randomUUID();
+    const session = createChatSession(chatId);
 
-    const newId = generateUUID();
-    const chatTitle = generateSlug(2, { format: "title" });
-    if (typeof window !== "undefined") {
-      sessionStorage.setItem(`pending-query-${newId}`, input);
-      localStorage.setItem(`chat-title-${newId}`, chatTitle);
+    if (!session) {
+      return;
     }
-    router.push(`/chat/${newId}`);
+
+    const messageId = crypto.randomUUID();
+    const timestamp = new Date().toISOString();
+
+    if (text) {
+      saveChatSession(chatId, [
+        {
+          id: messageId,
+          role: "user",
+          content: text,
+          timestamp,
+        },
+      ]);
+    }
+
+    setPendingChatMessage(chatId, {
+      files,
+      locale,
+      messageId,
+      text,
+      timestamp,
+    });
+
+    router.push(`/chat/${chatId}`);
   };
 
   return (
-    <div className="flex flex-col items-center justify-center p-4 w-full max-w-xl mx-auto min-h-screen gap-4">
-      <Logo />
-      <h1 className="text-2xl md:text-3xl font-semibold tracking-tight text-foreground text-center">
-        What are you shopping for today?
-      </h1>
-      <ChatForm
-        input={input}
-        handleInputChange={handleInputChange}
-        handleSubmit={handleSubmit}
-        isLoading={isLoading}
-        stop={() => setIsLoading(false)}
-      />
-      {/* Suggestions List */}
-      <div className="flex flex-wrap gap-2 self-start">
-        {suggestions.map((suggestion) => (
-          <Button
-            key={suggestion.id}
-            type="button"
-            onClick={() => {
-              const event = {
-                target: { value: suggestion.query },
-              } as React.ChangeEvent<HTMLTextAreaElement>;
-              handleInputChange(event);
-            }}
-            variant="secondary"
-            size="xs"
+    <main
+      className={cn(
+        "flex h-dvh min-h-0 w-full flex-col items-center overflow-y-auto px-4 sm:px-6",
+        isKeyboardOpen
+          ? "justify-end pb-2 pt-3"
+          : "justify-center py-16 sm:py-24",
+      )}
+      data-keyboard-open={isKeyboardOpen || undefined}
+      style={viewportHeight ? { height: viewportHeight } : undefined}
+    >
+      <section
+        aria-labelledby="home-heading"
+        className="min-w-0 w-full max-w-2xl"
+      >
+        <div className="mb-7 flex flex-col items-center text-center">
+          <Logo />
+          <h1
+            className="mt-4 text-2xl font-semibold tracking-tight text-foreground sm:text-3xl"
+            id="home-heading"
           >
-            {suggestion.label}
-          </Button>
-        ))}
-      </div>
-    </div>
+            {t("title")}
+          </h1>
+        </div>
+
+        <ChatForm
+          onSubmit={handleSubmit}
+          onValueChange={setInput}
+          textareaRef={textareaRef}
+          value={input}
+        />
+
+        <div
+          className={cn(
+            "relative mt-3 w-full max-w-xl mx-auto",
+            isKeyboardOpen && "hidden",
+          )}
+        >
+          <div className="absolute left-0 top-0 bottom-0 w-8 bg-linear-to-r from-background to-transparent pointer-events-none z-10" />
+          <fieldset className="flex min-w-0 w-full overflow-x-auto scrollbar-hide gap-2 border-0 p-0 pb-1 px-6">
+            <legend className="sr-only">{t("suggestionsLabel")}</legend>
+            {suggestionIds.map((suggestionId) => {
+              const query = t(`suggestions.${suggestionId}.query`);
+
+              return (
+                <Button
+                  key={suggestionId}
+                  onClick={() => handleSuggestionClick(query)}
+                  size="xs"
+                  type="button"
+                  variant="secondary"
+                  className="shrink-0"
+                >
+                  {t(`suggestions.${suggestionId}.label`)}
+                </Button>
+              );
+            })}
+          </fieldset>
+          <div className="absolute right-0 top-0 bottom-0 w-8 bg-linear-to-l from-background to-transparent pointer-events-none z-10" />
+        </div>
+      </section>
+    </main>
   );
 };

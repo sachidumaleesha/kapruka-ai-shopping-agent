@@ -1,6 +1,7 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
+@source "../../../node_modules/streamdown/dist/*.js";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -49,16 +50,17 @@
   --color-code: var(--code);
   --color-code-foreground: var(--code-foreground);
   @keyframes spinner-move {
-  to {
-    stroke-dashoffset: -100;
+    to {
+      stroke-dashoffset: -100;
     }
   }
   @keyframes spinner-dash {
-  0%, 100% {
-    stroke-dasharray: 15 85;
+    0%,
+    100% {
+      stroke-dasharray: 15 85;
     }
-  50% {
-    stroke-dasharray: 40 60;
+    50% {
+      stroke-dasharray: 40 60;
     }
   }
 }
@@ -115,8 +117,8 @@
   --secondary-foreground: oklch(96% 0 0);
   --muted: #1c1c1c;
   --muted-foreground: oklch(62% 0 0);
-  --accent: oklch(80% 0.18 195);
-  --accent-foreground: #151515;
+  --accent: #151515;
+  --accent-foreground: oklch(96% 0 0);
   --destructive: oklch(62% 0.22 25);
   --border: rgb(255 255 255 / 0.05);
   --input: rgb(255 255 255 / 0.05);
@@ -181,13 +183,15 @@
   }
 
   /* Hide scrollbar utility */
-  .scrollbar-hide {
-    -ms-overflow-style: none; /* IE and Edge */
-    scrollbar-width: none; /* Firefox */
+  .scrollbar-hide,
+  .scrollbar-hide * {
+    -ms-overflow-style: none !important; /* IE and Edge */
+    scrollbar-width: none !important; /* Firefox */
   }
 
-  .scrollbar-hide::-webkit-scrollbar {
-    display: none; /* Chrome, Safari, Opera */
+  .scrollbar-hide::-webkit-scrollbar,
+  .scrollbar-hide *::-webkit-scrollbar {
+    display: none !important; /* Chrome, Safari, Opera */
   }
 }
 

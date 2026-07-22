@@ -1,74 +1,146 @@
-import { createMCPClient } from "@ai-sdk/mcp";
-import { isStepCount, type ModelMessage, streamText } from "ai";
+import { createGateway } from "@ai-sdk/gateway";
+import { createMCPClient, type MCPClient } from "@ai-sdk/mcp";
+import {
+  convertToModelMessages,
+  createUIMessageStreamResponse,
+  stepCountIs,
+  streamText,
+  toUIMessageStream,
+  validateUIMessages,
+} from "ai";
+import { z } from "zod";
+
 import { env } from "@/env";
-import { openrouter } from "@/lib/open-router";
-import { SYSTEM_PROMPT } from "./system-prompt";
+import { APP_LOCALES } from "@/i18n/config";
+import type { ChatUIMessage } from "@/lib/ai/chat-message";
+import { getKaprukaTools } from "@/lib/ai/kapruka-tools";
+import { getKaprukaSystemPrompt } from "@/lib/ai/system-prompt";
 
 export const runtime = "nodejs";
-export const maxDuration = 120;
+export const maxDuration = 60;
 
-type ChatRequest = { messages?: unknown };
+const MAX_REQUEST_BYTES = 8 * 1024 * 1024;
+const gateway = createGateway({ apiKey: env.AI_GATEWAY_API_KEY });
+const model = gateway("google/gemini-3.5-flash-lite");
 
-function isModelMessage(value: unknown): value is ModelMessage {
-  if (!value || typeof value !== "object") return false;
+const requestSchema = z.object({
+  id: z.uuid(),
+  locale: z.enum(APP_LOCALES).default("en"),
+  messages: z.array(z.unknown()).min(1).max(50),
+});
 
-  const message = value as { role?: unknown; content?: unknown };
-  return (
-    (message.role === "user" || message.role === "assistant") &&
-    typeof message.content === "string" &&
-    message.content.trim().length > 0
-  );
-}
+const errorMessages = {
+  en: "I couldn't complete that request. Please try again.",
+  si: "එම ඉල්ලීම සම්පූර්ණ කළ නොහැකි විය. කරුණාකර නැවත උත්සාහ කරන්න.",
+  ta: "அந்தக் கோரிக்கையை நிறைவு செய்ய முடியவில்லை. மீண்டும் முயற்சிக்கவும்.",
+} as const;
 
-export async function POST(req: Request) {
-  let mcpClient: Awaited<ReturnType<typeof createMCPClient>> | null = null;
+const closeClient = (client: MCPClient | undefined) => {
+  if (!client) {
+    return Promise.resolve();
+  }
+
+  return client.close().catch(() => undefined);
+};
+
+const hasValidAttachments = (messages: ChatUIMessage[]) =>
+  messages.every((message) => {
+    const files = message.parts.filter((part) => part.type === "file");
+
+    return (
+      files.length <= 1 &&
+      files.every(
+        (file) =>
+          file.mediaType.startsWith("image/") &&
+          (file.url.startsWith("data:image/") ||
+            file.url.startsWith("https://")),
+      )
+    );
+  });
+
+export async function POST(request: Request) {
+  const contentLength = Number(request.headers.get("content-length") ?? 0);
+
+  if (contentLength > MAX_REQUEST_BYTES) {
+    return Response.json({ error: "Request is too large." }, { status: 413 });
+  }
+
+  let client: MCPClient | undefined;
 
   try {
-    const body = (await req.json()) as ChatRequest;
+    const parsedRequest = requestSchema.safeParse(await request.json());
+
+    if (!parsedRequest.success) {
+      return Response.json({ error: "Invalid chat request." }, { status: 400 });
+    }
+
+    const { locale } = parsedRequest.data;
+    const messages = await validateUIMessages<ChatUIMessage>({
+      messages: parsedRequest.data.messages,
+    });
+
     if (
-      !Array.isArray(body.messages) ||
-      body.messages.length === 0 ||
-      !body.messages.every(isModelMessage)
+      messages.some((message) => message.role === "system") ||
+      !hasValidAttachments(messages)
     ) {
       return Response.json(
-        { error: "A non-empty messages array is required." },
+        { error: "Invalid chat messages." },
         { status: 400 },
       );
     }
 
-    mcpClient = await createMCPClient({
-      transport: { type: "http", url: env.KAPRUKA_MCP_URL },
-    });
-    const tools = await mcpClient.tools();
-
-    const result = streamText({
-      model: openrouter.chat(env.OPENROUTER_MODEL),
-      messages: body.messages,
-      system: SYSTEM_PROMPT,
-      tools,
-      stopWhen: isStepCount(8),
-      abortSignal: req.signal,
-      onEnd: async () => {
-        await mcpClient?.close();
-        mcpClient = null;
+    client = await createMCPClient({
+      transport: {
+        type: "http",
+        url: env.KAPRUKA_MCP_URL,
       },
     });
 
-    return result.toTextStreamResponse();
-  } catch (error) {
-    console.error("Error in Chat API Route:", error);
-
-    if (mcpClient) {
-      try {
-        await mcpClient.close();
-      } catch (closeError) {
-        console.error("Error closing MCP client:", closeError);
+    const tools = await getKaprukaTools(client);
+    let closed = false;
+    const closeOnce = async () => {
+      if (closed) {
+        return;
       }
-    }
 
+      closed = true;
+      await closeClient(client);
+    };
+
+    const result = streamText({
+      abortSignal: request.signal,
+      messages: await convertToModelMessages(messages, { tools }),
+      model,
+      stopWhen: stepCountIs(6),
+      system: getKaprukaSystemPrompt(locale),
+      tools,
+      onAbort: closeOnce,
+      onEnd: closeOnce,
+      onError: async ({ error }) => {
+        console.error("[api/chat] stream failed", error);
+        await closeOnce();
+      },
+    });
+
+    const stream = toUIMessageStream({
+      generateMessageId: () => crypto.randomUUID(),
+      messageMetadata: ({ part }) =>
+        part.type === "start"
+          ? { createdAt: new Date().toISOString() }
+          : undefined,
+      onError: () => errorMessages[locale],
+      originalMessages: messages,
+      sendReasoning: false,
+      stream: result.stream,
+      tools,
+    });
+
+    return createUIMessageStreamResponse({ stream });
+  } catch {
+    await closeClient(client);
     return Response.json(
-      { error: "The shopping assistant is temporarily unavailable." },
-      { status: 502 },
+      { error: "Unable to start the shopping assistant." },
+      { status: 500 },
     );
   }
 }

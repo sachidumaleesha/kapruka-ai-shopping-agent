@@ -1,17 +1,11 @@
-import { useState, useEffect } from "react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { Trash2, MessageSquare } from "lucide-react";
+"use client";
 
+import { MessageSquare, Trash2 } from "lucide-react";
+import Link from "next/link";
+import { useTranslations } from "next-intl";
+import { useEffect, useState } from "react";
+import { SidebarToggleIcon } from "@/components/custom/sidebar-toggle-icon";
 import { Button } from "@/components/ui/button";
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from "@/components/ui/sheet";
 import {
   Drawer,
   DrawerContent,
@@ -20,18 +14,25 @@ import {
   DrawerTitle,
   DrawerTrigger,
 } from "@/components/ui/drawer";
-
-import { useIsMobile } from "@/hooks/use-mobile";
-import { SidebarToggleIcon } from "@/components/custom/sidebar-toggle-icon";
 import {
-  getStoredChats,
-  deleteChatSession,
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
+import { useIsMobile } from "@/hooks/use-mobile";
+import {
   type ChatSession,
+  deleteChatSession,
+  getStoredChats,
 } from "@/lib/chat-storage";
 
 export const ChatHistory = () => {
+  const t = useTranslations("ChatHistory");
+  const commonT = useTranslations("Common");
   const isMobile = useIsMobile();
-  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [chats, setChats] = useState<ChatSession[]>([]);
 
@@ -49,14 +50,13 @@ export const ChatHistory = () => {
   };
 
   const trigger = (
-    <button>
+    <button aria-label={t("open")} type="button">
       <SidebarToggleIcon isOpen={open} />
     </button>
   );
 
-  const title = "Chat History";
-  const description =
-    "Your recent shopping conversations with the Kapruka assistant";
+  const title = t("title");
+  const description = t("description");
 
   const content = (
     <div className="flex flex-col h-full flex-1 overflow-hidden">
@@ -67,11 +67,10 @@ export const ChatHistory = () => {
           </div>
           <div className="space-y-1">
             <p className="text-sm font-medium text-foreground">
-              No chats found
+              {t("emptyTitle")}
             </p>
-            <p className="text-xs text-muted-foreground max-w-[220px] mx-auto">
-              Start a new conversation to search products, check delivery, and
-              shop!
+            <p className="text-xs text-muted-foreground max-w-55 mx-auto">
+              {t("emptyDescription")}
             </p>
           </div>
         </div>
@@ -97,7 +96,8 @@ export const ChatHistory = () => {
                 size="icon"
                 onClick={(e) => handleDelete(e, chat.id)}
                 className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-opacity shrink-0 lg:opacity-0 group-hover:opacity-100"
-                title="Delete chat"
+                aria-label={t("delete")}
+                title={t("delete")}
               >
                 <Trash2 className="h-4 w-4" />
               </Button>
@@ -127,8 +127,9 @@ export const ChatHistory = () => {
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>{trigger}</SheetTrigger>
       <SheetContent
+        closeLabel={commonT("close")}
         side="left"
-        className="flex flex-col h-full w-[350px] sm:w-[400px]"
+        className="flex flex-col h-full w-87.5 sm:w-100"
       >
         <SheetHeader className="pb-4 border-b border-border py-4 px-4">
           <SheetTitle>{title}</SheetTitle>

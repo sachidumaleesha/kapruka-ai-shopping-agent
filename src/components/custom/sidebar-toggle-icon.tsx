@@ -30,6 +30,7 @@ export function SidebarToggleIcon({
 }: SidebarToggleIconProps) {
   return (
     <svg
+      aria-hidden="true"
       width="24"
       height="24"
       viewBox="0 0 24 24"
@@ -52,7 +53,7 @@ export function SidebarToggleIcon({
         d={isOpen ? PANEL_OPEN : PANEL_CLOSED}
         animate={{ d: isOpen ? PANEL_OPEN : PANEL_CLOSED }}
         style={{ fill: "var(--background)" }}
-        transition={{ duration: 0.35, ease: [0.4, 0, 0.2, 1] }}
+        transition={{ duration: 0.18, ease: [0.23, 1, 0.32, 1] }}
       />
     </svg>
   );

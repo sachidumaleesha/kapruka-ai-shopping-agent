@@ -1,112 +1,231 @@
-import Markdown from "react-markdown";
-import { GeneratedAvatar } from "@/components/shared/generated-avatar";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Bubble, BubbleContent } from "@/components/ui/bubble";
+import type { ChatStatus } from "ai";
+import { isToolUIPart } from "ai";
+import { ArrowDownIcon } from "lucide-react";
+import { useLocale, useTranslations } from "next-intl";
+import { Fragment, useMemo } from "react";
+
+import {
+  Conversation,
+  ConversationContent,
+  ConversationScrollButton,
+} from "@/components/ai-elements/conversation";
 import {
   Message,
-  MessageAvatar,
   MessageContent,
-} from "@/components/ui/message";
+  MessageResponse,
+} from "@/components/ai-elements/message";
 import {
-  MessageScroller,
-  MessageScrollerContent,
-  MessageScrollerItem,
-  MessageScrollerProvider,
-  MessageScrollerViewport,
-} from "@/components/ui/message-scroller";
-import { cn } from "@/lib/utils";
-
-interface ChatMessage {
-  id: string;
-  role: "user" | "assistant";
-  content: string;
-  timestamp: string;
-}
+  Tool,
+  ToolContent,
+  ToolHeader,
+  ToolInput,
+  ToolOutput,
+  type ToolPart,
+} from "@/components/ai-elements/tool";
+import { Loader } from "@/components/custom/loader";
+import type { ChatUIMessage } from "@/lib/ai/chat-message";
 
 interface MessageListProps {
-  messages: ChatMessage[];
-  isLoading: boolean;
-  chatId: string;
+  errorMessage?: string;
+  messages: ChatUIMessage[];
+  status: ChatStatus;
 }
 
 export const MessageList = ({
+  errorMessage,
   messages,
-  isLoading,
-  chatId,
+  status,
 }: MessageListProps) => {
+  const locale = useLocale();
+  const t = useTranslations("Chat");
+  const timeFormatter = useMemo(
+    () =>
+      new Intl.DateTimeFormat(locale, {
+        hour: "numeric",
+        minute: "2-digit",
+      }),
+    [locale],
+  );
+
+  const getToolTitle = (part: ToolPart) => {
+    const name =
+      part.type === "dynamic-tool"
+        ? part.toolName
+        : part.type.slice("tool-".length);
+
+    switch (name) {
+      case "kapruka_list_categories":
+        return t("tools.listCategories");
+      case "kapruka_get_product":
+        return t("tools.getProduct");
+      case "kapruka_search_products":
+        return t("tools.searchProducts");
+      case "kapruka_list_delivery_cities":
+        return t("tools.listDeliveryCities");
+      case "kapruka_check_delivery":
+        return t("tools.checkDelivery");
+      case "kapruka_track_order":
+        return t("tools.trackOrder");
+      default:
+        return name.replaceAll("_", " ");
+    }
+  };
+
+  const getToolStatus = (state: ToolPart["state"]) => {
+    switch (state) {
+      case "approval-requested":
+        return t("toolStatus.awaitingApproval");
+      case "approval-responded":
+        return t("toolStatus.responded");
+      case "input-available":
+        return t("toolStatus.running");
+      case "input-streaming":
+        return t("toolStatus.pending");
+      case "output-available":
+        return t("toolStatus.completed");
+      case "output-denied":
+        return t("toolStatus.denied");
+      case "output-error":
+        return t("toolStatus.error");
+    }
+  };
+
   return (
-    <div className="relative flex-1 overflow-hidden">
-      <MessageScrollerProvider>
-        <MessageScroller>
-          <MessageScrollerViewport className="p-4">
-            <MessageScrollerContent
-              aria-busy={isLoading}
-              className="mx-auto max-w-2xl pb-10"
-            >
-              {messages.map((message) => (
-                <MessageScrollerItem
-                  key={message.id}
-                  scrollAnchor={message.role === "user"}
-                >
-                  <Message align={message.role === "user" ? "end" : "start"}>
-                    <MessageAvatar>
-                      {message.role === "user" ? (
-                        <GeneratedAvatar
-                          seed={chatId}
-                          variant="glass"
-                          className="size-8 border border-border"
+    <Conversation
+      aria-label={t("messagesLabel")}
+      className="size-full scrollbar-hide"
+    >
+      <ConversationContent className="mx-auto min-h-full w-full max-w-xl justify-end gap-5 px-0 py-6">
+        {messages.map((message) => {
+          const isUser = message.role === "user";
+          const label = isUser ? t("userMessage") : t("assistantMessage");
+          const createdAt = message.metadata?.createdAt;
+          const timestamp = createdAt ? new Date(createdAt) : null;
+          const formattedTime =
+            timestamp && !Number.isNaN(timestamp.getTime())
+              ? timeFormatter.format(timestamp)
+              : null;
+
+          return (
+            <Message aria-label={label} from={message.role} key={message.id}>
+              <MessageContent className="max-w-[85%] sm:max-w-[75%]">
+                {message.parts.map((part, index) => {
+                  if (part.type === "file") {
+                    return (
+                      <figure
+                        className="w-48 max-w-full overflow-hidden rounded-2xl border border-border bg-card"
+                        key={`${message.id}-${index}`}
+                      >
+                        {/* biome-ignore lint/performance/noImgElement: User-provided data URLs intentionally use a native image element. */}
+                        <img
+                          alt={part.filename || t("attachedImage")}
+                          className="aspect-square size-full object-cover"
+                          decoding="async"
+                          height={320}
+                          src={part.url}
+                          width={320}
+                        />
+                      </figure>
+                    );
+                  }
+
+                  if (part.type === "text" && part.text) {
+                    return (
+                      <MessageResponse key={`${message.id}-${index}`}>
+                        {part.text}
+                      </MessageResponse>
+                    );
+                  }
+
+                  if (isToolUIPart(part)) {
+                    const output = "output" in part ? part.output : undefined;
+                    const errorText =
+                      "errorText" in part ? part.errorText : undefined;
+                    const header =
+                      part.type === "dynamic-tool" ? (
+                        <ToolHeader
+                          state={part.state}
+                          statusLabel={getToolStatus(part.state)}
+                          title={getToolTitle(part)}
+                          toolName={part.toolName}
+                          type={part.type}
                         />
                       ) : (
-                        <Avatar className="size-8 border border-border bg-slate-900">
-                          <AvatarImage
-                            src="/assets/logo.png"
-                            alt="Kapruka Logo"
+                        <ToolHeader
+                          state={part.state}
+                          statusLabel={getToolStatus(part.state)}
+                          title={getToolTitle(part)}
+                          type={part.type}
+                        />
+                      );
+
+                    return (
+                      <Tool
+                        className="mb-0"
+                        key={`${message.id}-${part.toolCallId}`}
+                      >
+                        {header}
+                        <ToolContent>
+                          <ToolInput
+                            input={part.input}
+                            label={t("toolParameters")}
                           />
-                          <AvatarFallback>K</AvatarFallback>
-                        </Avatar>
-                      )}
-                    </MessageAvatar>
-                    <MessageContent>
-                      <Bubble
-                        align={message.role === "user" ? "end" : "start"}
-                        variant={
-                          message.role === "user" ? "tinted" : "secondary"
-                        }
-                      >
-                        <BubbleContent className="max-w-none [&_a]:font-medium [&_a]:text-primary [&_a]:underline [&_a]:underline-offset-4 [&_code]:rounded [&_code]:bg-background/70 [&_code]:px-1 [&_li]:my-1 [&_ol]:my-2 [&_ol]:list-decimal [&_ol]:pl-5 [&_p:not(:last-child)]:mb-2 [&_ul]:my-2 [&_ul]:list-disc [&_ul]:pl-5">
-                          <Markdown
-                            components={{
-                              a: ({ children, ...props }) => (
-                                <a
-                                  {...props}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                >
-                                  {children}
-                                </a>
-                              ),
-                            }}
-                          >
-                            {message.content}
-                          </Markdown>
-                        </BubbleContent>
-                      </Bubble>
-                      <span
-                        className={cn(
-                          "mt-1 block px-2 text-[10px] text-muted-foreground",
-                          message.role === "user" ? "self-end" : "self-start",
-                        )}
-                      >
-                        {message.timestamp}
-                      </span>
-                    </MessageContent>
-                  </Message>
-                </MessageScrollerItem>
-              ))}
-            </MessageScrollerContent>
-          </MessageScrollerViewport>
-        </MessageScroller>
-      </MessageScrollerProvider>
-    </div>
+                          <ToolOutput
+                            errorLabel={t("toolError")}
+                            errorText={errorText}
+                            output={output}
+                            resultLabel={t("toolResult")}
+                          />
+                        </ToolContent>
+                      </Tool>
+                    );
+                  }
+
+                  return <Fragment key={`${message.id}-${index}`} />;
+                })}
+              </MessageContent>
+
+              {formattedTime && (
+                <time
+                  className="px-2 text-[10px] text-muted-foreground group-[.is-user]:self-end"
+                  dateTime={createdAt}
+                >
+                  {formattedTime}
+                </time>
+              )}
+            </Message>
+          );
+        })}
+
+        {status === "submitted" && (
+          <Message aria-label={t("assistantMessage")} from="assistant">
+            <MessageContent className="text-muted-foreground">
+              <Loader
+                className="size-9"
+                label={t("thinking")}
+                size={32}
+                variant="dots"
+              />
+            </MessageContent>
+          </Message>
+        )}
+
+        {errorMessage && (
+          <Message aria-label={t("assistantMessage")} from="assistant">
+            <MessageContent>
+              <p className="text-sm text-destructive">{errorMessage}</p>
+            </MessageContent>
+          </Message>
+        )}
+      </ConversationContent>
+
+      <ConversationScrollButton
+        aria-label={t("scrollToLatest")}
+        className="transition-transform duration-150 active:scale-[0.97]"
+      >
+        <ArrowDownIcon aria-hidden="true" />
+        <span className="sr-only">{t("scrollToLatest")}</span>
+      </ConversationScrollButton>
+    </Conversation>
   );
 };

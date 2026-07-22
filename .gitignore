@@ -13,12 +13,12 @@
 # testing
 /coverage
 
-# lock file
-*.lock
-
 # next.js
 /.next/
 /out/
+
+# lock
+*.lock
 
 # production
 /build

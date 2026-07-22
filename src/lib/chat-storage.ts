@@ -1,6 +1,6 @@
 import { generateSlug } from "random-word-slugs";
 
-export interface ChatMessage {
+export interface StoredChatMessage {
   id: string;
   role: "user" | "assistant";
   content: string;
@@ -8,100 +8,254 @@ export interface ChatMessage {
 }
 
 export interface ChatSession {
-  id: string; // the UUID
-  title: string; // Title Case version of the slug
+  id: string;
+  title: string;
   lastMessage?: string;
-  updatedAt: number;
+  createdAt: string;
+  updatedAt: string;
 }
 
-const CHATS_KEY = "kapruka-chat-sessions";
-const MESSAGES_PREFIX = "kapruka-chat-messages-";
+const CHAT_INDEX_KEY = "kapruka-chats";
+const MESSAGE_KEY_PREFIX = "kapruka-chat-";
+const TITLE_KEY_PREFIX = "kapruka-chat-title-";
+const LEGACY_CHAT_INDEX_KEY = "kapruka-chat-sessions";
+const LEGACY_MESSAGE_KEY_PREFIX = "kapruka-chat-messages-";
+const LEGACY_TITLE_KEY_PREFIX = "chat-title-";
+
+const hasStorage = () => typeof window !== "undefined";
+
+const parseStoredArray = (value: string | null): unknown[] => {
+  if (!value) {
+    return [];
+  }
+
+  try {
+    const parsed: unknown = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+};
+
+const toIsoDate = (value: unknown, fallback: string) => {
+  if (typeof value !== "string" && typeof value !== "number") {
+    return fallback;
+  }
+
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? fallback : date.toISOString();
+};
 
 export const getStoredChats = (): ChatSession[] => {
-  if (typeof window === "undefined") return [];
-  try {
-    const data = localStorage.getItem(CHATS_KEY);
-    return data ? JSON.parse(data) : [];
-  } catch (e) {
-    console.error("Failed to parse chats from localStorage", e);
+  if (!hasStorage()) {
     return [];
   }
-};
 
-export const getStoredMessages = (chatId: string): ChatMessage[] => {
-  if (typeof window === "undefined") return [];
+  let value: string | null;
+
   try {
-    const data = localStorage.getItem(`${MESSAGES_PREFIX}${chatId}`);
-    return data ? JSON.parse(data) : [];
-  } catch (e) {
-    console.error(`Failed to parse messages for chat ${chatId} from localStorage`, e);
+    value =
+      window.localStorage.getItem(CHAT_INDEX_KEY) ??
+      window.localStorage.getItem(LEGACY_CHAT_INDEX_KEY);
+  } catch {
     return [];
   }
+
+  const fallbackDate = new Date(0).toISOString();
+
+  return parseStoredArray(value)
+    .map((item): ChatSession | null => {
+      if (!item || typeof item !== "object") {
+        return null;
+      }
+
+      const chat = item as Record<string, unknown>;
+      if (typeof chat.id !== "string" || typeof chat.title !== "string") {
+        return null;
+      }
+
+      const updatedAt = toIsoDate(chat.updatedAt, fallbackDate);
+
+      return {
+        id: chat.id,
+        title: chat.title,
+        lastMessage:
+          typeof chat.lastMessage === "string" ? chat.lastMessage : undefined,
+        createdAt: toIsoDate(chat.createdAt, updatedAt),
+        updatedAt,
+      };
+    })
+    .filter((chat): chat is ChatSession => chat !== null)
+    .toSorted((a, b) => b.updatedAt.localeCompare(a.updatedAt));
 };
 
-export const getOrGenerateChatTitle = (chatId: string): string => {
-  if (typeof window === "undefined" || !chatId) return "New Chat";
-  
-  // 1. Check if title is already stored in temp key `chat-title-${chatId}`
-  const tempTitle = localStorage.getItem(`chat-title-${chatId}`);
-  if (tempTitle) return tempTitle;
+export const getStoredMessages = (chatId: string): StoredChatMessage[] => {
+  if (!hasStorage() || !chatId) {
+    return [];
+  }
 
-  // 2. Check if chat session already exists in list
-  const chats = getStoredChats();
-  const existing = chats.find((c) => c.id === chatId);
-  if (existing) return existing.title;
+  let value: string | null;
 
-  // 3. Generate a new slug name
-  const newTitle = generateSlug(2, { format: "title" });
-  localStorage.setItem(`chat-title-${chatId}`, newTitle);
-  return newTitle;
-};
-
-export const saveChatSession = (chatId: string, messages: ChatMessage[]) => {
-  if (typeof window === "undefined" || !chatId) return;
   try {
-    // 1. Save messages
-    localStorage.setItem(`${MESSAGES_PREFIX}${chatId}`, JSON.stringify(messages));
+    value =
+      window.localStorage.getItem(`${MESSAGE_KEY_PREFIX}${chatId}`) ??
+      window.localStorage.getItem(`${LEGACY_MESSAGE_KEY_PREFIX}${chatId}`);
+  } catch {
+    return [];
+  }
 
-    // 2. Update session list
-    const chats = getStoredChats();
-    const existingIndex = chats.findIndex((c) => c.id === chatId);
-    const lastMsg = messages[messages.length - 1]?.content || "";
-    
-    // Clean up markdown/links from preview if needed
-    const lastMessagePreview = lastMsg.length > 60 ? lastMsg.substring(0, 60) + "..." : lastMsg;
-    const title = getOrGenerateChatTitle(chatId);
+  return parseStoredArray(value)
+    .map((item): StoredChatMessage | null => {
+      if (!item || typeof item !== "object") {
+        return null;
+      }
 
-    const updatedSession: ChatSession = {
-      id: chatId,
-      title: title,
-      lastMessage: lastMessagePreview,
-      updatedAt: Date.now(),
-    };
+      const message = item as Record<string, unknown>;
+      const content =
+        typeof message.content === "string"
+          ? message.content
+          : typeof message.text === "string"
+            ? message.text
+            : null;
 
-    if (existingIndex > -1) {
-      chats[existingIndex] = updatedSession;
-    } else {
-      chats.unshift(updatedSession);
+      if (
+        typeof message.id !== "string" ||
+        (message.role !== "user" && message.role !== "assistant") ||
+        content === null
+      ) {
+        return null;
+      }
+
+      return {
+        id: message.id,
+        role: message.role,
+        content,
+        timestamp:
+          typeof message.timestamp === "string"
+            ? message.timestamp
+            : new Date().toISOString(),
+      };
+    })
+    .filter((message): message is StoredChatMessage => message !== null);
+};
+
+export const getOrGenerateChatTitle = (
+  chatId: string,
+  fallback = "New Chat",
+) => {
+  if (!hasStorage() || !chatId) {
+    return fallback;
+  }
+
+  const existingChat = getStoredChats().find((chat) => chat.id === chatId);
+  if (existingChat) {
+    return existingChat.title;
+  }
+
+  try {
+    const storedTitle =
+      window.localStorage.getItem(`${TITLE_KEY_PREFIX}${chatId}`) ??
+      window.localStorage.getItem(`${LEGACY_TITLE_KEY_PREFIX}${chatId}`);
+    if (storedTitle) {
+      return storedTitle;
     }
 
-    // Sort by updatedAt descending
-    chats.sort((a, b) => b.updatedAt - a.updatedAt);
-    localStorage.setItem(CHATS_KEY, JSON.stringify(chats));
-  } catch (e) {
-    console.error("Failed to save chat to localStorage", e);
+    const title = generateSlug(2, { format: "title" });
+    window.localStorage.setItem(`${TITLE_KEY_PREFIX}${chatId}`, title);
+
+    return title;
+  } catch {
+    return fallback;
   }
 };
 
-export const deleteChatSession = (chatId: string) => {
-  if (typeof window === "undefined") return;
+export const hasStoredChat = (chatId: string) =>
+  getStoredChats().some((chat) => chat.id === chatId);
+
+export const createChatSession = (chatId: string): ChatSession | null => {
+  if (!hasStorage() || !chatId) {
+    return null;
+  }
+
+  const existingChat = getStoredChats().find((chat) => chat.id === chatId);
+  if (existingChat) {
+    return existingChat;
+  }
+
+  const now = new Date().toISOString();
+  const session: ChatSession = {
+    id: chatId,
+    title: getOrGenerateChatTitle(chatId),
+    createdAt: now,
+    updatedAt: now,
+  };
+
   try {
-    localStorage.removeItem(`${MESSAGES_PREFIX}${chatId}`);
-    localStorage.removeItem(`chat-title-${chatId}`);
+    const chats = [session, ...getStoredChats()];
+    window.localStorage.setItem(CHAT_INDEX_KEY, JSON.stringify(chats));
+    return session;
+  } catch {
+    return null;
+  }
+};
+
+export const saveChatSession = (
+  chatId: string,
+  messages: StoredChatMessage[],
+) => {
+  if (!hasStorage() || !chatId || messages.length === 0) {
+    return;
+  }
+
+  try {
+    window.localStorage.setItem(
+      `${MESSAGE_KEY_PREFIX}${chatId}`,
+      JSON.stringify(messages),
+    );
+
     const chats = getStoredChats();
-    const filtered = chats.filter((c) => c.id !== chatId);
-    localStorage.setItem(CHATS_KEY, JSON.stringify(filtered));
-  } catch (e) {
-    console.error(`Failed to delete chat ${chatId} from localStorage`, e);
+    const existingIndex = chats.findIndex((chat) => chat.id === chatId);
+    const existingChat = existingIndex >= 0 ? chats[existingIndex] : undefined;
+    const now = new Date().toISOString();
+    const latestContent = messages.at(-1)?.content ?? "";
+    const lastMessage =
+      latestContent.length > 60
+        ? `${latestContent.slice(0, 60)}…`
+        : latestContent;
+    const session: ChatSession = {
+      id: chatId,
+      title: getOrGenerateChatTitle(chatId),
+      lastMessage,
+      createdAt: existingChat?.createdAt ?? now,
+      updatedAt: now,
+    };
+
+    if (existingIndex >= 0) {
+      chats[existingIndex] = session;
+    } else {
+      chats.push(session);
+    }
+
+    chats.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+    window.localStorage.setItem(CHAT_INDEX_KEY, JSON.stringify(chats));
+  } catch {
+    // Storage can be unavailable or full. The active in-memory chat still works.
+  }
+};
+
+export const deleteChatSession = (id: string) => {
+  if (!hasStorage()) {
+    return;
+  }
+
+  try {
+    const chats = getStoredChats().filter((chat) => chat.id !== id);
+    window.localStorage.setItem(CHAT_INDEX_KEY, JSON.stringify(chats));
+    window.localStorage.removeItem(`${MESSAGE_KEY_PREFIX}${id}`);
+    window.localStorage.removeItem(`${TITLE_KEY_PREFIX}${id}`);
+    window.localStorage.removeItem(`${LEGACY_MESSAGE_KEY_PREFIX}${id}`);
+    window.localStorage.removeItem(`${LEGACY_TITLE_KEY_PREFIX}${id}`);
+  } catch {
+    // Nothing else to clean up when browser storage is unavailable.
   }
 };

@@ -1,0 +1,115 @@
+{
+  "Metadata": {
+    "title": "Kapruka AI Shopping Assistant",
+    "description": "Shop with the Kapruka AI shopping assistant"
+  },
+  "Common": {
+    "language": "Language",
+    "selectLanguage": "Select language",
+    "close": "Close"
+  },
+  "Home": {
+    "title": "What are you shopping for today?",
+    "suggestionsLabel": "Suggested shopping prompts",
+    "suggestions": {
+      "browse-categories": {
+        "label": "Browse Categories",
+        "query": "What shopping categories do you have?"
+      },
+      "search-toys": {
+        "label": "Search Products",
+        "query": "Search for soft teddy bear toys under 10,000 LKR"
+      },
+      "product-details": {
+        "label": "Get Product Details",
+        "query": "Show details of the chocolate gateau cake with ID 10834"
+      },
+      "check-cities": {
+        "label": "Check Delivery Cities",
+        "query": "Do you deliver to Kandy or Batticaloa?"
+      },
+      "check-delivery": {
+        "label": "Delivery Fee Quote",
+        "query": "How much is delivery for a cake to Negombo on Friday?"
+      },
+      "create-order": {
+        "label": "Create Guest Order",
+        "query": "Help me buy a red rose bouquet for delivery in Colombo tomorrow"
+      },
+      "track-order": {
+        "label": "Track Order Status",
+        "query": "Track my order number 239485"
+      }
+    }
+  },
+  "Chat": {
+    "backHome": "Back to home",
+    "newChat": "New conversation",
+    "loading": "Loading chat...",
+    "messagesLabel": "Conversation messages",
+    "userMessage": "Your message",
+    "assistantMessage": "Assistant message",
+    "attachedImage": "Attached image",
+    "scrollToLatest": "Scroll to latest message",
+    "requestError": "I couldn't complete that request. Please try again.",
+    "thinking": "Checking Kapruka...",
+    "toolParameters": "Parameters",
+    "toolResult": "Result",
+    "toolError": "Error",
+    "tools": {
+      "listCategories": "Browse categories",
+      "getProduct": "Get product details",
+      "searchProducts": "Search products",
+      "listDeliveryCities": "Check delivery cities",
+      "checkDelivery": "Check delivery",
+      "trackOrder": "Track order"
+    },
+    "toolStatus": {
+      "awaitingApproval": "Awaiting approval",
+      "responded": "Responded",
+      "running": "Running",
+      "pending": "Pending",
+      "completed": "Completed",
+      "denied": "Denied",
+      "error": "Error"
+    }
+  },
+  "ChatForm": {
+    "formLabel": "Shopping assistant prompt",
+    "inputLabel": "What are you shopping for?",
+    "placeholder": "Ask about products, gifts, or delivery...",
+    "addImage": "Add an image",
+    "removeImage": "Remove image",
+    "uploadFiles": "Upload files",
+    "useVoiceInput": "Use voice input",
+    "startVoiceInput": "Start voice input",
+    "stopVoiceInput": "Stop voice input",
+    "submit": "Submit",
+    "stop": "Stop",
+    "errors": {
+      "accept": "Please choose an image file.",
+      "max_file_size": "The image must be smaller than 5 MB.",
+      "max_files": "You can attach only one image."
+    }
+  },
+  "ChatHistory": {
+    "open": "Open chat history",
+    "title": "Chat History",
+    "description": "Your recent shopping conversations with the assistant",
+    "emptyTitle": "No chats found",
+    "emptyDescription": "Start a new conversation to search products, check delivery, and shop!",
+    "delete": "Delete chat"
+  },
+  "Cart": {
+    "open": "Open shopping cart",
+    "title": "Your cart",
+    "description": "Review the products selected in this chat.",
+    "emptyTitle": "Your cart is empty",
+    "emptyDescription": "Products you add while chatting will appear here."
+  },
+  "NotFound": {
+    "title": "Page not found",
+    "description": "The page you are looking for does not exist.",
+    "backHome": "Back to home"
+  }
+}
