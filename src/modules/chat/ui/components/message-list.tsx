@@ -1,8 +1,7 @@
 import type { ChatStatus } from "ai";
-import { isToolUIPart } from "ai";
 import { ArrowDownIcon } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
-import { Fragment, useMemo } from "react";
+import { useMemo } from "react";
 
 import {
   Conversation,
@@ -14,14 +13,7 @@ import {
   MessageContent,
   MessageResponse,
 } from "@/components/ai-elements/message";
-import {
-  Tool,
-  ToolContent,
-  ToolHeader,
-  ToolInput,
-  ToolOutput,
-  type ToolPart,
-} from "@/components/ai-elements/tool";
+import { ImageZoom } from "@/components/custom/image-zoom";
 import { Loader } from "@/components/custom/loader";
 import type { ChatUIMessage } from "@/lib/ai/chat-message";
 
@@ -47,48 +39,15 @@ export const MessageList = ({
     [locale],
   );
 
-  const getToolTitle = (part: ToolPart) => {
-    const name =
-      part.type === "dynamic-tool"
-        ? part.toolName
-        : part.type.slice("tool-".length);
-
-    switch (name) {
-      case "kapruka_list_categories":
-        return t("tools.listCategories");
-      case "kapruka_get_product":
-        return t("tools.getProduct");
-      case "kapruka_search_products":
-        return t("tools.searchProducts");
-      case "kapruka_list_delivery_cities":
-        return t("tools.listDeliveryCities");
-      case "kapruka_check_delivery":
-        return t("tools.checkDelivery");
-      case "kapruka_track_order":
-        return t("tools.trackOrder");
-      default:
-        return name.replaceAll("_", " ");
-    }
-  };
-
-  const getToolStatus = (state: ToolPart["state"]) => {
-    switch (state) {
-      case "approval-requested":
-        return t("toolStatus.awaitingApproval");
-      case "approval-responded":
-        return t("toolStatus.responded");
-      case "input-available":
-        return t("toolStatus.running");
-      case "input-streaming":
-        return t("toolStatus.pending");
-      case "output-available":
-        return t("toolStatus.completed");
-      case "output-denied":
-        return t("toolStatus.denied");
-      case "output-error":
-        return t("toolStatus.error");
-    }
-  };
+  const latestMessage = messages.at(-1);
+  const latestAssistantHasText =
+    latestMessage?.role === "assistant" &&
+    latestMessage.parts.some(
+      (part) => part.type === "text" && Boolean(part.text.trim()),
+    );
+  const showWorkingIndicator =
+    status === "submitted" ||
+    (status === "streaming" && !latestAssistantHasText);
 
   return (
     <Conversation
@@ -99,6 +58,16 @@ export const MessageList = ({
         {messages.map((message) => {
           const isUser = message.role === "user";
           const label = isUser ? t("userMessage") : t("assistantMessage");
+          const visibleParts = message.parts.filter(
+            (part) =>
+              part.type === "file" ||
+              (part.type === "text" && Boolean(part.text)),
+          );
+
+          if (visibleParts.length === 0) {
+            return null;
+          }
+
           const createdAt = message.metadata?.createdAt;
           const timestamp = createdAt ? new Date(createdAt) : null;
           const formattedTime =
@@ -109,22 +78,24 @@ export const MessageList = ({
           return (
             <Message aria-label={label} from={message.role} key={message.id}>
               <MessageContent className="max-w-[85%] sm:max-w-[75%]">
-                {message.parts.map((part, index) => {
+                {visibleParts.map((part, index) => {
                   if (part.type === "file") {
                     return (
                       <figure
                         className="w-48 max-w-full overflow-hidden rounded-2xl border border-border bg-card"
                         key={`${message.id}-${index}`}
                       >
-                        {/* biome-ignore lint/performance/noImgElement: User-provided data URLs intentionally use a native image element. */}
-                        <img
-                          alt={part.filename || t("attachedImage")}
-                          className="aspect-square size-full object-cover"
-                          decoding="async"
-                          height={320}
-                          src={part.url}
-                          width={320}
-                        />
+                        <ImageZoom className="size-full">
+                          {/* biome-ignore lint/performance/noImgElement: User-provided data URLs intentionally use a native image element. */}
+                          <img
+                            alt={part.filename || t("attachedImage")}
+                            className="aspect-square size-full object-cover"
+                            decoding="async"
+                            height={320}
+                            src={part.url}
+                            width={320}
+                          />
+                        </ImageZoom>
                       </figure>
                     );
                   }
@@ -137,51 +108,7 @@ export const MessageList = ({
                     );
                   }
 
-                  if (isToolUIPart(part)) {
-                    const output = "output" in part ? part.output : undefined;
-                    const errorText =
-                      "errorText" in part ? part.errorText : undefined;
-                    const header =
-                      part.type === "dynamic-tool" ? (
-                        <ToolHeader
-                          state={part.state}
-                          statusLabel={getToolStatus(part.state)}
-                          title={getToolTitle(part)}
-                          toolName={part.toolName}
-                          type={part.type}
-                        />
-                      ) : (
-                        <ToolHeader
-                          state={part.state}
-                          statusLabel={getToolStatus(part.state)}
-                          title={getToolTitle(part)}
-                          type={part.type}
-                        />
-                      );
-
-                    return (
-                      <Tool
-                        className="mb-0"
-                        key={`${message.id}-${part.toolCallId}`}
-                      >
-                        {header}
-                        <ToolContent>
-                          <ToolInput
-                            input={part.input}
-                            label={t("toolParameters")}
-                          />
-                          <ToolOutput
-                            errorLabel={t("toolError")}
-                            errorText={errorText}
-                            output={output}
-                            resultLabel={t("toolResult")}
-                          />
-                        </ToolContent>
-                      </Tool>
-                    );
-                  }
-
-                  return <Fragment key={`${message.id}-${index}`} />;
+                  return null;
                 })}
               </MessageContent>
 
@@ -197,7 +124,7 @@ export const MessageList = ({
           );
         })}
 
-        {status === "submitted" && (
+        {showWorkingIndicator && (
           <Message aria-label={t("assistantMessage")} from="assistant">
             <MessageContent className="text-muted-foreground">
               <Loader
@@ -213,7 +140,7 @@ export const MessageList = ({
         {errorMessage && (
           <Message aria-label={t("assistantMessage")} from="assistant">
             <MessageContent>
-              <p className="text-sm text-destructive">{errorMessage}</p>
+              <p className="text-sm text-destructive ml-2">{errorMessage}</p>
             </MessageContent>
           </Message>
         )}

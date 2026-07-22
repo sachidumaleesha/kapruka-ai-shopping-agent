@@ -55,6 +55,7 @@ export const LanguageSelector = () => {
               key={option.code}
               lang={option.code}
               value={option.code}
+              className="cursor-pointer"
             >
               {option.label}
             </SelectItem>

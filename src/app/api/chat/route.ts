@@ -1,5 +1,5 @@
-import { createGateway } from "@ai-sdk/gateway";
 import { createMCPClient, type MCPClient } from "@ai-sdk/mcp";
+import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import {
   convertToModelMessages,
   createUIMessageStreamResponse,
@@ -20,8 +20,13 @@ export const runtime = "nodejs";
 export const maxDuration = 60;
 
 const MAX_REQUEST_BYTES = 8 * 1024 * 1024;
-const gateway = createGateway({ apiKey: env.AI_GATEWAY_API_KEY });
-const model = gateway("google/gemini-3.5-flash-lite");
+const wavespeed = createOpenAICompatible({
+  apiKey: env.WAVESPEED_API_KEY,
+  baseURL: "https://llm.wavespeed.ai/v1",
+  includeUsage: true,
+  name: "wavespeed",
+});
+const model = wavespeed("google/gemini-2.5-flash-lite");
 
 const requestSchema = z.object({
   id: z.uuid(),
