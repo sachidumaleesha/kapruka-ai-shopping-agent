@@ -8,6 +8,7 @@ import { Logo } from "@/components/shared/logo";
 import { Button } from "@/components/ui/button";
 import { useVisualViewport } from "@/hooks/use-visual-viewport";
 import { createChatSession, saveChatSession } from "@/lib/chat-storage";
+import { setPendingChatMessage } from "@/lib/pending-chat-message";
 import { cn } from "@/lib/utils";
 import {
   ChatForm,
@@ -27,7 +28,11 @@ export const HomeView = () => {
     requestAnimationFrame(() => textareaRef.current?.focus());
   };
 
-  const handleSubmit = ({ text }: LocalizedPromptInputMessage) => {
+  const handleSubmit = ({
+    text,
+    files,
+    locale,
+  }: LocalizedPromptInputMessage) => {
     const chatId = crypto.randomUUID();
     const session = createChatSession(chatId);
 
@@ -35,16 +40,27 @@ export const HomeView = () => {
       return;
     }
 
+    const messageId = crypto.randomUUID();
+    const timestamp = new Date().toISOString();
+
     if (text) {
       saveChatSession(chatId, [
         {
-          id: crypto.randomUUID(),
+          id: messageId,
           role: "user",
           content: text,
-          timestamp: new Date().toISOString(),
+          timestamp,
         },
       ]);
     }
+
+    setPendingChatMessage(chatId, {
+      files,
+      locale,
+      messageId,
+      text,
+      timestamp,
+    });
 
     router.push(`/chat/${chatId}`);
   };

@@ -4,6 +4,7 @@ import { z } from "zod";
 export const env = createEnv({
   server: {
     KAPRUKA_MCP_URL: z.string().min(1).default("https://mcp.kapruka.com/mcp"),
+    AI_GATEWAY_API_KEY: z.string().min(1),
   },
   shared: {
     NODE_ENV: z

@@ -1,22 +1,27 @@
 "use client";
+
+import { useChat } from "@ai-sdk/react";
+import { DefaultChatTransport } from "ai";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { FullScreenLoader } from "@/components/shared/full-screenloader";
 import { useVisualViewport } from "@/hooks/use-visual-viewport";
+import type { ChatUIMessage } from "@/lib/ai/chat-message";
 import {
   getOrGenerateChatTitle,
   getStoredMessages,
   hasStoredChat,
+  type StoredChatMessage,
   saveChatSession,
 } from "@/lib/chat-storage";
-import { ChatHeader } from "@/modules/chat/ui/components/chat-header";
 import {
-  type ChatMessage,
-  type ChatMessageAttachment,
-  MessageList,
-} from "@/modules/chat/ui/components/message-list";
+  type PendingChatMessage,
+  takePendingChatMessage,
+} from "@/lib/pending-chat-message";
+import { ChatHeader } from "@/modules/chat/ui/components/chat-header";
+import { MessageList } from "@/modules/chat/ui/components/message-list";
 import {
   ChatForm,
   type LocalizedPromptInputMessage,
@@ -26,74 +31,116 @@ interface ChatViewProps {
   chatId: string;
 }
 
-export const ChatView = ({ chatId }: ChatViewProps) => {
-  const router = useRouter();
-  const t = useTranslations("Chat");
-  const newChatTitle = t("newChat");
-  const [title, setTitle] = useState(newChatTitle);
-  const [input, setInput] = useState("");
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [loadedChatId, setLoadedChatId] = useState<string | null>(null);
-  const { height: viewportHeight, isKeyboardOpen } = useVisualViewport();
+interface LoadedChat {
+  chatId: string;
+  messages: ChatUIMessage[];
+  pendingMessage?: PendingChatMessage;
+  title: string;
+}
 
-  useEffect(() => {
-    if (!hasStoredChat(chatId)) {
-      router.replace("/");
-      return;
+const toUIMessage = (message: StoredChatMessage): ChatUIMessage => ({
+  id: message.id,
+  metadata: { createdAt: message.timestamp },
+  parts: [{ type: "text", text: message.content }],
+  role: message.role,
+});
+
+const toStoredMessages = (messages: ChatUIMessage[]): StoredChatMessage[] =>
+  messages.flatMap((message) => {
+    if (message.role !== "user" && message.role !== "assistant") {
+      return [];
     }
 
-    const storedMessages = getStoredMessages(chatId).map((message) => ({
-      id: message.id,
-      role: message.role,
-      text: message.content,
-      timestamp: message.timestamp,
-    }));
+    const content = message.parts
+      .filter((part) => part.type === "text")
+      .map((part) => part.text)
+      .join("\n")
+      .trim();
 
-    setTitle(getOrGenerateChatTitle(chatId, newChatTitle));
-    setMessages(storedMessages);
-    setLoadedChatId(chatId);
-  }, [chatId, newChatTitle, router]);
-
-  useEffect(() => {
-    if (loadedChatId !== chatId) {
-      return;
+    if (!content) {
+      return [];
     }
 
-    const persistableMessages = messages
-      .filter((message) => message.text.trim().length > 0)
-      .map((message) => ({
+    return [
+      {
+        content,
         id: message.id,
         role: message.role,
-        content: message.text,
-        timestamp: message.timestamp,
-      }));
-
-    saveChatSession(chatId, persistableMessages);
-  }, [chatId, loadedChatId, messages]);
-
-  const handleSubmit = ({ text, files }: LocalizedPromptInputMessage) => {
-    const attachments: ChatMessageAttachment[] = files.map((file) => ({
-      filename: file.filename,
-      mediaType: file.mediaType,
-      url: file.url,
-    }));
-
-    setMessages((currentMessages) => [
-      ...currentMessages,
-      {
-        id: crypto.randomUUID(),
-        role: "user",
-        text,
-        timestamp: new Date().toISOString(),
-        attachments,
+        timestamp: message.metadata?.createdAt ?? new Date().toISOString(),
       },
-    ]);
-    setInput("");
-  };
+    ];
+  });
 
-  if (loadedChatId !== chatId) {
-    return <FullScreenLoader label={t("loading")} />;
-  }
+const ActiveChat = ({
+  chatId,
+  initialMessages,
+  pendingMessage,
+  title,
+}: {
+  chatId: string;
+  initialMessages: ChatUIMessage[];
+  pendingMessage?: PendingChatMessage;
+  title: string;
+}) => {
+  const t = useTranslations("Chat");
+  const [input, setInput] = useState("");
+  const pendingSentRef = useRef(false);
+  const { height: viewportHeight, isKeyboardOpen } = useVisualViewport();
+  const transport = useMemo(
+    () =>
+      new DefaultChatTransport<ChatUIMessage>({
+        api: "/api/chat",
+      }),
+    [],
+  );
+  const { error, messages, sendMessage, status, stop } = useChat<ChatUIMessage>(
+    {
+      id: chatId,
+      messages: initialMessages,
+      transport,
+    },
+  );
+
+  useEffect(() => {
+    saveChatSession(chatId, toStoredMessages(messages));
+  }, [chatId, messages]);
+
+  useEffect(() => {
+    if (!pendingMessage || pendingSentRef.current) {
+      return;
+    }
+
+    pendingSentRef.current = true;
+    const isStoredMessage = initialMessages.some(
+      (message) => message.id === pendingMessage.messageId,
+    );
+
+    void sendMessage(
+      {
+        files: pendingMessage.files,
+        messageId: isStoredMessage ? pendingMessage.messageId : undefined,
+        metadata: { createdAt: pendingMessage.timestamp },
+        text: pendingMessage.text,
+      },
+      { body: { locale: pendingMessage.locale } },
+    );
+  }, [initialMessages, pendingMessage, sendMessage]);
+
+  const handleSubmit = ({
+    text,
+    files,
+    locale,
+  }: LocalizedPromptInputMessage) => {
+    setInput("");
+    return sendMessage(
+      {
+        files,
+        metadata: { createdAt: new Date().toISOString() },
+        text,
+      },
+      { body: { locale } },
+    );
+  };
 
   return (
     <main
@@ -108,17 +155,63 @@ export const ChatView = ({ chatId }: ChatViewProps) => {
         <ChatHeader title={title} />
 
         <div className="min-h-0 flex-1 px-4">
-          <MessageList messages={messages} />
+          <MessageList
+            errorMessage={error ? t("requestError") : undefined}
+            messages={messages}
+            status={status}
+          />
         </div>
 
         <div className="shrink-0 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2 sm:pb-5 sm:pt-3">
           <ChatForm
+            onStop={() => void stop()}
             onSubmit={handleSubmit}
             onValueChange={setInput}
+            status={status}
             value={input}
           />
         </div>
       </section>
     </main>
+  );
+};
+
+export const ChatView = ({ chatId }: ChatViewProps) => {
+  const router = useRouter();
+  const t = useTranslations("Chat");
+  const initializedChatRef = useRef<string | null>(null);
+  const [loadedChat, setLoadedChat] = useState<LoadedChat | null>(null);
+
+  useEffect(() => {
+    if (initializedChatRef.current === chatId) {
+      return;
+    }
+    initializedChatRef.current = chatId;
+
+    if (!hasStoredChat(chatId)) {
+      router.replace("/");
+      return;
+    }
+
+    const newChatTitle = t("newChat");
+    setLoadedChat({
+      chatId,
+      messages: getStoredMessages(chatId).map(toUIMessage),
+      pendingMessage: takePendingChatMessage(chatId),
+      title: getOrGenerateChatTitle(chatId, newChatTitle),
+    });
+  }, [chatId, router, t]);
+
+  if (!loadedChat || loadedChat.chatId !== chatId) {
+    return <FullScreenLoader label={t("loading")} />;
+  }
+
+  return (
+    <ActiveChat
+      chatId={chatId}
+      initialMessages={loadedChat.messages}
+      pendingMessage={loadedChat.pendingMessage}
+      title={loadedChat.title}
+    />
   );
 };

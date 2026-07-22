@@ -50,7 +50,29 @@
     "userMessage": "Your message",
     "assistantMessage": "Assistant message",
     "attachedImage": "Attached image",
-    "scrollToLatest": "Scroll to latest message"
+    "scrollToLatest": "Scroll to latest message",
+    "requestError": "I couldn't complete that request. Please try again.",
+    "thinking": "Checking Kapruka...",
+    "toolParameters": "Parameters",
+    "toolResult": "Result",
+    "toolError": "Error",
+    "tools": {
+      "listCategories": "Browse categories",
+      "getProduct": "Get product details",
+      "searchProducts": "Search products",
+      "listDeliveryCities": "Check delivery cities",
+      "checkDelivery": "Check delivery",
+      "trackOrder": "Track order"
+    },
+    "toolStatus": {
+      "awaitingApproval": "Awaiting approval",
+      "responded": "Responded",
+      "running": "Running",
+      "pending": "Pending",
+      "completed": "Completed",
+      "denied": "Denied",
+      "error": "Error"
+    }
   },
   "ChatForm": {
     "formLabel": "Shopping assistant prompt",

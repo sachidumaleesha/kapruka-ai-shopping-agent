@@ -50,7 +50,29 @@
     "userMessage": "ඔබගේ පණිවිඩය",
     "assistantMessage": "සහායකයාගේ පණිවිඩය",
     "attachedImage": "අමුණා ඇති පින්තූරය",
-    "scrollToLatest": "නවතම පණිවිඩයට යන්න"
+    "scrollToLatest": "නවතම පණිවිඩයට යන්න",
+    "requestError": "ඉල්ලීම සම්පූර්ණ කිරීමට නොහැකි විය. නැවත උත්සාහ කරන්න.",
+    "thinking": "Kapruka පරීක්ෂා කරමින්...",
+    "toolParameters": "පරාමිති",
+    "toolResult": "ප්‍රතිඵලය",
+    "toolError": "දෝෂය",
+    "tools": {
+      "listCategories": "කාණ්ඩ බලන්න",
+      "getProduct": "නිෂ්පාදන විස්තර ලබාගන්න",
+      "searchProducts": "නිෂ්පාදන සොයන්න",
+      "listDeliveryCities": "බෙදාහැරීමේ නගර බලන්න",
+      "checkDelivery": "බෙදාහැරීම පරීක්ෂා කරන්න",
+      "trackOrder": "ඇණවුම නිරීක්ෂණය කරන්න"
+    },
+    "toolStatus": {
+      "awaitingApproval": "අනුමැතිය බලාපොරොත්තුවෙන්",
+      "responded": "ප්‍රතිචාර දක්වා ඇත",
+      "running": "ක්‍රියාත්මක වෙමින්",
+      "pending": "සූදානම් වෙමින්",
+      "completed": "සම්පූර්ණයි",
+      "denied": "ප්‍රතික්ෂේප විය",
+      "error": "දෝෂයක්"
+    }
   },
   "ChatForm": {
     "formLabel": "සාප්පු සහායක විමසුම",

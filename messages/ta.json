@@ -50,7 +50,29 @@
     "userMessage": "உங்கள் செய்தி",
     "assistantMessage": "உதவியாளர் செய்தி",
     "attachedImage": "இணைக்கப்பட்ட படம்",
-    "scrollToLatest": "சமீபத்திய செய்திக்குச் செல்லவும்"
+    "scrollToLatest": "சமீபத்திய செய்திக்குச் செல்லவும்",
+    "requestError": "கோரிக்கையை நிறைவேற்ற முடியவில்லை. மீண்டும் முயற்சிக்கவும்.",
+    "thinking": "Kapruka-வில் சரிபார்க்கிறது...",
+    "toolParameters": "அளவுருக்கள்",
+    "toolResult": "முடிவு",
+    "toolError": "பிழை",
+    "tools": {
+      "listCategories": "வகைகளைப் பார்க்கவும்",
+      "getProduct": "தயாரிப்பு விவரங்களைப் பெறவும்",
+      "searchProducts": "தயாரிப்புகளைத் தேடவும்",
+      "listDeliveryCities": "விநியோக நகரங்களைப் பார்க்கவும்",
+      "checkDelivery": "விநியோகத்தைச் சரிபார்க்கவும்",
+      "trackOrder": "ஆர்டரைக் கண்காணிக்கவும்"
+    },
+    "toolStatus": {
+      "awaitingApproval": "ஒப்புதலுக்காக காத்திருக்கிறது",
+      "responded": "பதிலளிக்கப்பட்டது",
+      "running": "செயல்படுகிறது",
+      "pending": "தயாராகிறது",
+      "completed": "முடிந்தது",
+      "denied": "மறுக்கப்பட்டது",
+      "error": "பிழை"
+    }
   },
   "ChatForm": {
     "formLabel": "கொள்முதல் உதவியாளர் கேள்வி",
