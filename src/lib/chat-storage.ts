@@ -1,9 +1,12 @@
 import { generateSlug } from "random-word-slugs";
 
+import type { ChatUIMessage } from "@/lib/ai/chat-message";
+
 export interface StoredChatMessage {
   id: string;
   role: "user" | "assistant";
   content: string;
+  parts?: ChatUIMessage["parts"];
   timestamp: string;
 }
 
@@ -44,6 +47,35 @@ const toIsoDate = (value: unknown, fallback: string) => {
 
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? fallback : date.toISOString();
+};
+
+const getStoredMessageParts = (
+  value: unknown,
+): ChatUIMessage["parts"] | undefined => {
+  if (!Array.isArray(value)) {
+    return undefined;
+  }
+
+  const parts = value.filter((part) => {
+    if (!part || typeof part !== "object") {
+      return false;
+    }
+
+    const candidate = part as Record<string, unknown>;
+    if (candidate.type === "text") {
+      return typeof candidate.text === "string";
+    }
+
+    return (
+      typeof candidate.type === "string" &&
+      candidate.type.startsWith("tool-") &&
+      typeof candidate.toolCallId === "string" &&
+      (candidate.state === "output-available" ||
+        candidate.state === "output-error")
+    );
+  }) as ChatUIMessage["parts"];
+
+  return parts.length > 0 ? parts : undefined;
 };
 
 export const getStoredChats = (): ChatSession[] => {
@@ -130,6 +162,7 @@ export const getStoredMessages = (chatId: string): StoredChatMessage[] => {
         id: message.id,
         role: message.role,
         content,
+        parts: getStoredMessageParts(message.parts),
         timestamp:
           typeof message.timestamp === "string"
             ? message.timestamp
@@ -217,7 +250,9 @@ export const saveChatSession = (
     const existingIndex = chats.findIndex((chat) => chat.id === chatId);
     const existingChat = existingIndex >= 0 ? chats[existingIndex] : undefined;
     const now = new Date().toISOString();
-    const latestContent = messages.at(-1)?.content ?? "";
+    const latestContent =
+      messages.findLast((message) => Boolean(message.content.trim()))
+        ?.content ?? "";
     const lastMessage =
       latestContent.length > 60
         ? `${latestContent.slice(0, 60)}…`

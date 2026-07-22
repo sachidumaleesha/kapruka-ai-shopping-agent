@@ -10,8 +10,8 @@
     "format": "biome format --write"
   },
   "dependencies": {
-    "@ai-sdk/gateway": "^4.0.26",
     "@ai-sdk/mcp": "^2.0.16",
+    "@ai-sdk/openai-compatible": "^3.0.14",
     "@ai-sdk/react": "^4.0.37",
     "@base-ui/react": "^1.6.0",
     "@dicebear/core": "^10.3.0",
@@ -43,6 +43,7 @@
     "react": "19.2.4",
     "react-day-picker": "^10.0.1",
     "react-dom": "19.2.4",
+    "react-medium-image-zoom": "^5.4.8",
     "react-resizable-panels": "^4.12.2",
     "recharts": "3.8.0",
     "shadcn": "^4.13.1",

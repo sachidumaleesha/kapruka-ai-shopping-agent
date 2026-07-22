@@ -1,13 +1,14 @@
 "use client";
 
 import { useChat } from "@ai-sdk/react";
-import { DefaultChatTransport } from "ai";
+import { DefaultChatTransport, isToolUIPart } from "ai";
 import { useRouter } from "next/navigation";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { FullScreenLoader } from "@/components/shared/full-screenloader";
 import { useVisualViewport } from "@/hooks/use-visual-viewport";
+import type { AppLocale } from "@/i18n/config";
 import type { ChatUIMessage } from "@/lib/ai/chat-message";
 import {
   getOrGenerateChatTitle,
@@ -21,6 +22,7 @@ import {
   takePendingChatMessage,
 } from "@/lib/pending-chat-message";
 import { ChatHeader } from "@/modules/chat/ui/components/chat-header";
+import { isGenerativeToolPart } from "@/modules/chat/ui/components/generative-ui";
 import { MessageList } from "@/modules/chat/ui/components/message-list";
 import {
   ChatForm,
@@ -41,7 +43,10 @@ interface LoadedChat {
 const toUIMessage = (message: StoredChatMessage): ChatUIMessage => ({
   id: message.id,
   metadata: { createdAt: message.timestamp },
-  parts: [{ type: "text", text: message.content }],
+  parts:
+    message.parts && message.parts.length > 0
+      ? message.parts
+      : [{ type: "text", text: message.content }],
   role: message.role,
 });
 
@@ -51,13 +56,56 @@ const toStoredMessages = (messages: ChatUIMessage[]): StoredChatMessage[] =>
       return [];
     }
 
-    const content = message.parts
+    const parts = message.parts.flatMap<ChatUIMessage["parts"][number]>(
+      (part) => {
+        if (part.type === "text" && part.text) {
+          return [{ type: "text" as const, text: part.text }];
+        }
+
+        if (
+          isToolUIPart(part) &&
+          part.type !== "dynamic-tool" &&
+          isGenerativeToolPart(part) &&
+          part.state === "output-available"
+        ) {
+          return [
+            {
+              input: part.input,
+              output: part.output,
+              state: part.state,
+              toolCallId: part.toolCallId,
+              type: part.type,
+            },
+          ];
+        }
+
+        if (
+          isToolUIPart(part) &&
+          part.type !== "dynamic-tool" &&
+          isGenerativeToolPart(part) &&
+          part.state === "output-error"
+        ) {
+          return [
+            {
+              errorText: part.errorText,
+              input: part.input,
+              state: part.state,
+              toolCallId: part.toolCallId,
+              type: part.type,
+            },
+          ];
+        }
+
+        return [];
+      },
+    );
+    const content = parts
       .filter((part) => part.type === "text")
       .map((part) => part.text)
       .join("\n")
       .trim();
 
-    if (!content) {
+    if (parts.length === 0) {
       return [];
     }
 
@@ -65,6 +113,7 @@ const toStoredMessages = (messages: ChatUIMessage[]): StoredChatMessage[] =>
       {
         content,
         id: message.id,
+        parts,
         role: message.role,
         timestamp: message.metadata?.createdAt ?? new Date().toISOString(),
       },
@@ -83,6 +132,7 @@ const ActiveChat = ({
   title: string;
 }) => {
   const t = useTranslations("Chat");
+  const locale = useLocale() as AppLocale;
   const [input, setInput] = useState("");
   const pendingSentRef = useRef(false);
   const { height: viewportHeight, isKeyboardOpen } = useVisualViewport();
@@ -142,6 +192,20 @@ const ActiveChat = ({
     );
   };
 
+  const handleSuggestionSelect = (prompt: string) => {
+    if (status !== "ready") {
+      return;
+    }
+
+    void sendMessage(
+      {
+        metadata: { createdAt: new Date().toISOString() },
+        text: prompt,
+      },
+      { body: { locale } },
+    );
+  };
+
   return (
     <main
       className="h-dvh w-full overflow-hidden bg-background"
@@ -158,6 +222,7 @@ const ActiveChat = ({
           <MessageList
             errorMessage={error ? t("requestError") : undefined}
             messages={messages}
+            onSuggestionSelect={handleSuggestionSelect}
             status={status}
           />
         </div>

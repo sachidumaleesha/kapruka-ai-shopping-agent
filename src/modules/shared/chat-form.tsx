@@ -97,7 +97,8 @@ const PromptActions = ({
   const locale = useLocale();
   const t = useTranslations("ChatForm");
   const isGenerating = status === "submitted" || status === "streaming";
-  const isEmpty = value.trim().length === 0 && attachments.files.length === 0;
+  const isPromptEmpty = value.trim().length === 0;
+  const submitStatus = status === "error" ? "ready" : status;
   const appLocale = isAppLocale(locale) ? locale : DEFAULT_LOCALE;
   const speechLocale = getSpeechLocale(appLocale);
 
@@ -142,9 +143,9 @@ const PromptActions = ({
       <PromptInputSubmit
         aria-label={isGenerating ? t("stop") : t("submit")}
         className="rounded-full transition-transform duration-150 active:scale-[0.97]"
-        disabled={disabled || (!isGenerating && isEmpty)}
+        disabled={disabled || (!isGenerating && isPromptEmpty)}
         onStop={onStop}
-        status={status}
+        status={submitStatus}
       />
     </PromptInputFooter>
   );
@@ -164,15 +165,18 @@ export const ChatForm = ({
   const t = useTranslations("ChatForm");
   const appLocale = isAppLocale(locale) ? locale : DEFAULT_LOCALE;
   const [fileError, setFileError] = useState<PromptInputErrorCode | null>(null);
+  const isGenerating = status === "submitted" || status === "streaming";
 
   const handleSubmit = (message: PromptInputMessage) => {
     const nextMessage = { ...message, text: message.text.trim() };
 
-    if (!nextMessage.text && nextMessage.files.length === 0) {
-      return;
+    if (isGenerating || !nextMessage.text) {
+      throw new Error("Prompt submission is currently unavailable");
     }
 
-    return onSubmit({ ...nextMessage, locale: appLocale });
+    // The user message is added optimistically, so the composer can reset
+    // without waiting for the assistant's response to finish.
+    void onSubmit({ ...nextMessage, locale: appLocale });
   };
 
   return (
@@ -195,8 +199,19 @@ export const ChatForm = ({
             className="min-h-20 max-h-20 px-4 pt-4 pb-2 text-base leading-6 md:text-base scrollbar-hide resize-none"
             disabled={disabled}
             onChange={(event) => onValueChange(event.currentTarget.value)}
+            onKeyDown={(event) => {
+              if (
+                isGenerating &&
+                event.key === "Enter" &&
+                !event.shiftKey &&
+                !event.nativeEvent.isComposing
+              ) {
+                event.preventDefault();
+              }
+            }}
             placeholder={t("placeholder")}
             ref={textareaRef}
+            required
             value={value}
           />
         </PromptInputBody>

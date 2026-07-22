@@ -35,7 +35,7 @@ export const kaprukaToolSchemas = {
       params: z.object({
         q: z.string().min(3).max(200),
         category: z.string().nullable().optional(),
-        limit: z.number().int().min(1).max(12).default(6),
+        limit: z.number().int().min(1).max(6).default(6),
         cursor: z.string().nullable().optional(),
         currency: currencySchema,
         min_price: z.number().min(0).nullable().optional(),

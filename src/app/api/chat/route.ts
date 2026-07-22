@@ -1,8 +1,9 @@
-import { createGateway } from "@ai-sdk/gateway";
 import { createMCPClient, type MCPClient } from "@ai-sdk/mcp";
+import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import {
   convertToModelMessages,
   createUIMessageStreamResponse,
+  hasToolCall,
   stepCountIs,
   streamText,
   toUIMessageStream,
@@ -13,6 +14,7 @@ import { z } from "zod";
 import { env } from "@/env";
 import { APP_LOCALES } from "@/i18n/config";
 import type { ChatUIMessage } from "@/lib/ai/chat-message";
+import { followUpSuggestionsTool } from "@/lib/ai/follow-up-suggestions-tool";
 import { getKaprukaTools } from "@/lib/ai/kapruka-tools";
 import { getKaprukaSystemPrompt } from "@/lib/ai/system-prompt";
 
@@ -20,8 +22,13 @@ export const runtime = "nodejs";
 export const maxDuration = 60;
 
 const MAX_REQUEST_BYTES = 8 * 1024 * 1024;
-const gateway = createGateway({ apiKey: env.AI_GATEWAY_API_KEY });
-const model = gateway("google/gemini-3.5-flash-lite");
+const wavespeed = createOpenAICompatible({
+  apiKey: env.WAVESPEED_API_KEY,
+  baseURL: "https://llm.wavespeed.ai/v1",
+  includeUsage: true,
+  name: "wavespeed",
+});
+const model = wavespeed("google/gemini-2.5-flash-lite");
 
 const requestSchema = z.object({
   id: z.uuid(),
@@ -96,7 +103,10 @@ export async function POST(request: Request) {
       },
     });
 
-    const tools = await getKaprukaTools(client);
+    const tools = {
+      ...(await getKaprukaTools(client)),
+      show_follow_up_suggestions: followUpSuggestionsTool,
+    };
     let closed = false;
     const closeOnce = async () => {
       if (closed) {
@@ -111,7 +121,7 @@ export async function POST(request: Request) {
       abortSignal: request.signal,
       messages: await convertToModelMessages(messages, { tools }),
       model,
-      stopWhen: stepCountIs(6),
+      stopWhen: [stepCountIs(6), hasToolCall("show_follow_up_suggestions")],
       system: getKaprukaSystemPrompt(locale),
       tools,
       onAbort: closeOnce,
