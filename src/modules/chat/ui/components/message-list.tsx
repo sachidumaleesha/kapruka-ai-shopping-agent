@@ -1,4 +1,4 @@
-import type { ChatStatus } from "ai";
+import { type ChatStatus, isToolUIPart } from "ai";
 import { ArrowDownIcon } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { useMemo } from "react";
@@ -16,16 +16,24 @@ import {
 import { ImageZoom } from "@/components/custom/image-zoom";
 import { Loader } from "@/components/custom/loader";
 import type { ChatUIMessage } from "@/lib/ai/chat-message";
+import {
+  GenerativeToolResult,
+  getGenerativeToolName,
+  isGenerativeToolPart,
+  isKaprukaResultToolPart,
+} from "@/modules/chat/ui/components/generative-ui";
 
 interface MessageListProps {
   errorMessage?: string;
   messages: ChatUIMessage[];
+  onSuggestionSelect: (prompt: string) => void;
   status: ChatStatus;
 }
 
 export const MessageList = ({
   errorMessage,
   messages,
+  onSuggestionSelect,
   status,
 }: MessageListProps) => {
   const locale = useLocale();
@@ -40,14 +48,16 @@ export const MessageList = ({
   );
 
   const latestMessage = messages.at(-1);
-  const latestAssistantHasText =
+  const latestAssistantHasContent =
     latestMessage?.role === "assistant" &&
     latestMessage.parts.some(
-      (part) => part.type === "text" && Boolean(part.text.trim()),
+      (part) =>
+        (part.type === "text" && Boolean(part.text.trim())) ||
+        (isToolUIPart(part) && isGenerativeToolPart(part)),
     );
   const showWorkingIndicator =
     status === "submitted" ||
-    (status === "streaming" && !latestAssistantHasText);
+    (status === "streaming" && !latestAssistantHasContent);
 
   return (
     <Conversation
@@ -58,13 +68,31 @@ export const MessageList = ({
         {messages.map((message) => {
           const isUser = message.role === "user";
           const label = isUser ? t("userMessage") : t("assistantMessage");
+          const hasKaprukaResult = message.parts.some(
+            (part) => isToolUIPart(part) && isKaprukaResultToolPart(part),
+          );
           const visibleParts = message.parts.filter(
             (part) =>
               part.type === "file" ||
-              (part.type === "text" && Boolean(part.text)),
+              (part.type === "text" &&
+                Boolean(part.text) &&
+                !hasKaprukaResult) ||
+              (isToolUIPart(part) && isGenerativeToolPart(part)),
           );
+          const orderedParts = [
+            ...visibleParts.filter(
+              (part) =>
+                !isToolUIPart(part) ||
+                getGenerativeToolName(part) !== "show_follow_up_suggestions",
+            ),
+            ...visibleParts.filter(
+              (part) =>
+                isToolUIPart(part) &&
+                getGenerativeToolName(part) === "show_follow_up_suggestions",
+            ),
+          ];
 
-          if (visibleParts.length === 0) {
+          if (orderedParts.length === 0) {
             return null;
           }
 
@@ -77,8 +105,8 @@ export const MessageList = ({
 
           return (
             <Message aria-label={label} from={message.role} key={message.id}>
-              <MessageContent className="max-w-[85%] sm:max-w-[75%]">
-                {visibleParts.map((part, index) => {
+              <MessageContent className="max-w-[85%] group-[.is-assistant]:w-full group-[.is-assistant]:max-w-full sm:max-w-[75%]">
+                {orderedParts.map((part, index) => {
                   if (part.type === "file") {
                     return (
                       <figure
@@ -105,6 +133,17 @@ export const MessageList = ({
                       <MessageResponse key={`${message.id}-${index}`}>
                         {part.text}
                       </MessageResponse>
+                    );
+                  }
+
+                  if (isToolUIPart(part)) {
+                    return (
+                      <GenerativeToolResult
+                        disabled={status !== "ready"}
+                        key={part.toolCallId}
+                        onSuggestionSelect={onSuggestionSelect}
+                        part={part}
+                      />
                     );
                   }
 

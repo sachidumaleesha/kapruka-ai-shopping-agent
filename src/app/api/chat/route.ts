@@ -3,6 +3,7 @@ import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import {
   convertToModelMessages,
   createUIMessageStreamResponse,
+  hasToolCall,
   stepCountIs,
   streamText,
   toUIMessageStream,
@@ -13,6 +14,7 @@ import { z } from "zod";
 import { env } from "@/env";
 import { APP_LOCALES } from "@/i18n/config";
 import type { ChatUIMessage } from "@/lib/ai/chat-message";
+import { followUpSuggestionsTool } from "@/lib/ai/follow-up-suggestions-tool";
 import { getKaprukaTools } from "@/lib/ai/kapruka-tools";
 import { getKaprukaSystemPrompt } from "@/lib/ai/system-prompt";
 
@@ -101,7 +103,10 @@ export async function POST(request: Request) {
       },
     });
 
-    const tools = await getKaprukaTools(client);
+    const tools = {
+      ...(await getKaprukaTools(client)),
+      show_follow_up_suggestions: followUpSuggestionsTool,
+    };
     let closed = false;
     const closeOnce = async () => {
       if (closed) {
@@ -116,7 +121,7 @@ export async function POST(request: Request) {
       abortSignal: request.signal,
       messages: await convertToModelMessages(messages, { tools }),
       model,
-      stopWhen: stepCountIs(6),
+      stopWhen: [stepCountIs(6), hasToolCall("show_follow_up_suggestions")],
       system: getKaprukaSystemPrompt(locale),
       tools,
       onAbort: closeOnce,
