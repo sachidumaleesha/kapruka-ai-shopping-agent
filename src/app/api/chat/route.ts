@@ -3,9 +3,9 @@ import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import {
   convertToModelMessages,
   createUIMessageStreamResponse,
-  hasToolCall,
   stepCountIs,
   streamText,
+  type StopCondition,
   toUIMessageStream,
   validateUIMessages,
 } from "ai";
@@ -14,8 +14,12 @@ import { z } from "zod";
 import { env } from "@/env";
 import { APP_LOCALES } from "@/i18n/config";
 import type { ChatUIMessage } from "@/lib/ai/chat-message";
-import { followUpSuggestionsTool } from "@/lib/ai/follow-up-suggestions-tool";
+import {
+  getKaprukaResultError,
+  isKaprukaEmptyResult,
+} from "@/lib/ai/kapruka-results";
 import { getKaprukaTools } from "@/lib/ai/kapruka-tools";
+import { getModelVisibleMessages } from "@/lib/ai/model-history";
 import { getKaprukaSystemPrompt } from "@/lib/ai/system-prompt";
 
 export const runtime = "nodejs";
@@ -29,6 +33,37 @@ const wavespeed = createOpenAICompatible({
   name: "wavespeed",
 });
 const model = wavespeed("google/gemini-2.5-flash-lite");
+const KAPRUKA_TOOL_NAMES = [
+  "kapruka_list_categories",
+  "kapruka_get_product",
+  "kapruka_search_products",
+  "kapruka_list_delivery_cities",
+  "kapruka_check_delivery",
+  "kapruka_track_order",
+] as const;
+
+const KAPRUKA_TOOL_NAME_SET = new Set<string>(KAPRUKA_TOOL_NAMES);
+
+/**
+ * Stop condition that fires only when a Kapruka tool call returns valid,
+ * non-empty data. Empty or error results let the loop continue so the model
+ * can generate a helpful text response suggesting alternatives.
+ */
+const hasSuccessfulKaprukaToolCall: StopCondition<any, any> = ({ steps }) => {
+  const lastStep = steps.at(-1);
+  if (!lastStep) return false;
+
+  return lastStep.dynamicToolResults.some((result) => {
+    if (!KAPRUKA_TOOL_NAME_SET.has(result.toolName)) return false;
+
+    const output = result.output;
+    if (isKaprukaEmptyResult(output) || getKaprukaResultError(output)) {
+      return false;
+    }
+
+    return true;
+  });
+};
 
 const requestSchema = z.object({
   id: z.uuid(),
@@ -103,10 +138,7 @@ export async function POST(request: Request) {
       },
     });
 
-    const tools = {
-      ...(await getKaprukaTools(client)),
-      show_follow_up_suggestions: followUpSuggestionsTool,
-    };
+    const tools = await getKaprukaTools(client);
     let closed = false;
     const closeOnce = async () => {
       if (closed) {
@@ -119,9 +151,14 @@ export async function POST(request: Request) {
 
     const result = streamText({
       abortSignal: request.signal,
-      messages: await convertToModelMessages(messages, { tools }),
+      messages: await convertToModelMessages(
+        getModelVisibleMessages(messages),
+        {
+          tools,
+        },
+      ),
       model,
-      stopWhen: [stepCountIs(6), hasToolCall("show_follow_up_suggestions")],
+      stopWhen: [stepCountIs(4), hasSuccessfulKaprukaToolCall],
       system: getKaprukaSystemPrompt(locale),
       tools,
       onAbort: closeOnce,

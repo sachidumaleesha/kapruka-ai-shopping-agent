@@ -7,7 +7,6 @@ const currencySchema = z
   .enum(["LKR", "USD", "GBP", "AUD", "CAD", "EUR"])
   .default("LKR");
 const responseFormatSchema = z.literal("json").default("json");
-const toolOutputSchema = z.object({ result: z.string() });
 
 export const kaprukaToolSchemas = {
   kapruka_list_categories: {
@@ -17,7 +16,6 @@ export const kaprukaToolSchemas = {
         response_format: responseFormatSchema,
       }),
     }),
-    outputSchema: toolOutputSchema,
   },
   kapruka_get_product: {
     inputSchema: z.object({
@@ -28,14 +26,13 @@ export const kaprukaToolSchemas = {
         response_format: responseFormatSchema,
       }),
     }),
-    outputSchema: toolOutputSchema,
   },
   kapruka_search_products: {
     inputSchema: z.object({
       params: z.object({
         q: z.string().min(3).max(200),
         category: z.string().nullable().optional(),
-        limit: z.number().int().min(1).max(6).default(6),
+        limit: z.number().int().min(1).max(20).default(6),
         cursor: z.string().nullable().optional(),
         currency: currencySchema,
         min_price: z.number().min(0).nullable().optional(),
@@ -54,7 +51,6 @@ export const kaprukaToolSchemas = {
         response_format: responseFormatSchema,
       }),
     }),
-    outputSchema: toolOutputSchema,
   },
   kapruka_list_delivery_cities: {
     inputSchema: z.object({
@@ -64,7 +60,6 @@ export const kaprukaToolSchemas = {
         response_format: responseFormatSchema,
       }),
     }),
-    outputSchema: toolOutputSchema,
   },
   kapruka_check_delivery: {
     inputSchema: z.object({
@@ -75,7 +70,6 @@ export const kaprukaToolSchemas = {
         response_format: responseFormatSchema,
       }),
     }),
-    outputSchema: toolOutputSchema,
   },
   kapruka_track_order: {
     inputSchema: z.object({
@@ -84,7 +78,6 @@ export const kaprukaToolSchemas = {
         response_format: responseFormatSchema,
       }),
     }),
-    outputSchema: toolOutputSchema,
   },
 } as const;
 

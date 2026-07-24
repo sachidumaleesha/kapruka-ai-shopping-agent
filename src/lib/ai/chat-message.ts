@@ -5,3 +5,5 @@ export interface ChatMessageMetadata {
 }
 
 export type ChatUIMessage = UIMessage<ChatMessageMetadata>;
+
+export const hasMeaningfulText = (text: string) => /[\p{L}\p{N}]/u.test(text);

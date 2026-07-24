@@ -9,7 +9,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { FullScreenLoader } from "@/components/shared/full-screenloader";
 import { useVisualViewport } from "@/hooks/use-visual-viewport";
 import type { AppLocale } from "@/i18n/config";
-import type { ChatUIMessage } from "@/lib/ai/chat-message";
+import { type ChatUIMessage, hasMeaningfulText } from "@/lib/ai/chat-message";
 import {
   getOrGenerateChatTitle,
   getStoredMessages,
@@ -58,7 +58,11 @@ const toStoredMessages = (messages: ChatUIMessage[]): StoredChatMessage[] =>
 
     const parts = message.parts.flatMap<ChatUIMessage["parts"][number]>(
       (part) => {
-        if (part.type === "text" && part.text) {
+        if (
+          part.type === "text" &&
+          part.text &&
+          (message.role === "user" || hasMeaningfulText(part.text))
+        ) {
           return [{ type: "text" as const, text: part.text }];
         }
 
