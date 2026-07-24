@@ -113,7 +113,8 @@ The source code is the authority for the table below. Some ideas in
 - Delivery-city badges.
 - Delivery quote and availability cards.
 - Order tracking and timeline views.
-- Contextual follow-up actions generated as two to four buttons.
+- Two to four localized follow-up actions derived from each completed tool
+  result and revealed with it as one response.
 - Duplicate prose is suppressed when a structured Kapruka result already
   communicates the answer.
 
@@ -153,10 +154,11 @@ browser that already has that chat in local storage.
 
 ### Continuing a conversation
 
-The AI can use verified Kapruka tools, stream a short explanation, render a
-purpose-built UI, and propose follow-up actions. Selecting a follow-up button
-submits its hidden prompt as the next user message. While the AI is responding,
-the user can prepare another draft but cannot submit it.
+The AI can use one verified Kapruka tool per response. The client validates the
+result, renders its purpose-built UI, and adds localized follow-up actions in
+the same atomic reveal. Selecting a follow-up button submits its hidden prompt
+as the next user message. While the AI is responding, the user can prepare
+another draft but cannot submit it.
 
 ### Attachments
 
@@ -221,7 +223,6 @@ sequenceDiagram
         Model->>API: Request a permitted tool
         API->>MCP: Execute the validated read-only call
         MCP-->>API: Return structured result
-        API-->>Model: Supply the result
     end
     Model-->>API: Text and structured response parts
     API-->>UI: Stream UI-message events
@@ -231,9 +232,11 @@ sequenceDiagram
     API->>MCP: Close per-request client
 ~~~
 
-The server stops an agent run after six model steps or immediately after the
-follow-up suggestion tool is called. The MCP client is also closed when a
-request finishes, aborts, or fails.
+The server stops an agent run immediately after the first completed Kapruka
+tool or after four safety-limit steps. Previous tool-role messages are compacted
+into short factual text before the next model request, avoiding provider
+tool-history instability while retaining relevant product IDs and names. The
+MCP client is also closed when a request finishes, aborts, or fails.
 
 ## Generative UI
 
@@ -248,7 +251,11 @@ validated with Zod before a matching React component receives it.
 | <code>kapruka_list_delivery_cities</code> | Delivery-city badges |
 | <code>kapruka_check_delivery</code> | Availability, estimate, fee, and warning card |
 | <code>kapruka_track_order</code> | Safe order status and timeline renderer |
-| <code>show_follow_up_suggestions</code> | Two to four contextual next-action buttons |
+
+The client derives two to four localized next-action buttons from the tool
+name, validated input, and result. Because this does not require another model
+step, the primary UI and its suggestions appear together and are reconstructed
+reliably after refresh.
 
 The MCP response parser supports the common result envelopes returned by MCP
 servers, removes tool-friendly error wrappers, parses JSON where needed, and
@@ -420,10 +427,6 @@ The model receives only these read-only Kapruka capabilities:
 5. <code>kapruka_check_delivery</code>
 6. <code>kapruka_track_order</code>
 
-It also receives one local presentation tool,
-<code>show_follow_up_suggestions</code>. This tool accepts two to four concise
-label/prompt pairs and does not call an external service.
-
 Order creation is not registered. This is an intentional safety boundary until
 cart ownership, address confirmation, payment handling, authentication, and
 idempotency are designed.
@@ -471,9 +474,9 @@ kapruka-ai-shopping-agent/
 │   │   ├── ai/
 │   │   │   ├── chat-message.ts      # Message helpers and persistence shape
 │   │   │   ├── follow-up-suggestions.ts
-│   │   │   ├── follow-up-suggestions-tool.ts
 │   │   │   ├── kapruka-results.ts   # MCP result normalization and schemas
 │   │   │   ├── kapruka-tools.ts     # Allowed MCP tool wrappers
+│   │   │   ├── model-history.ts      # Compact model-bound conversation context
 │   │   │   └── system-prompt.ts     # Localized agent policy
 │   │   ├── chat-id.ts               # UUID checks
 │   │   ├── chat-storage.ts          # Browser persistence
@@ -648,7 +651,7 @@ The application treats model output and remote tool output as untrusted data.
 - Client-supplied system roles are rejected.
 - Only a fixed allowlist of six read-only MCP tools is registered.
 - Search results are capped at six.
-- Agent runs are capped at six steps.
+- Agent runs stop after the first Kapruka tool and are capped at four steps.
 - Suggestion labels and prompts have bounded lengths and item counts.
 - Per-request MCP clients are closed on completion, abortion, and failure.
 - Upstream failures are translated to user-safe localized messages.
@@ -673,7 +676,8 @@ The localized system prompt instructs the assistant to:
 - Keep the selected response language.
 - Distinguish verified tool data from general guidance.
 - Avoid claiming that an order was placed when no order-creation tool exists.
-- End actionable results with a small set of relevant follow-up suggestions.
+- Call at most one Kapruka tool per response; the client adds relevant
+  localized follow-up actions.
 
 These controls reduce risk but do not make model output infallible. Keep
 high-impact actions, especially payment and order creation, behind explicit

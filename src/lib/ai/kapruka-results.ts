@@ -20,11 +20,11 @@ export const productPreviewSchema = z.object({
   compare_at_price: moneySchema.optional().nullable(),
   in_stock: z.boolean(),
   stock_level: z.string().optional().nullable(),
-  image_url: z.url().optional().nullable(),
+  image_url: z.string().optional().nullable(),
   category: categorySchema.optional().nullable(),
   rating: z.number().optional().nullable(),
   ships_internationally: z.boolean().optional(),
-  url: z.url(),
+  url: z.string(),
 });
 
 export const productSearchResultSchema = z.object({
@@ -42,7 +42,7 @@ export const productDetailSchema = z.object({
   in_stock: z.boolean(),
   stock_level: z.string().optional().nullable(),
   category: categorySchema.optional().nullable(),
-  images: z.array(z.url()).default([]),
+  images: z.array(z.string()).default([]),
   shipping: z
     .object({
       ships_from: z.string().optional(),
@@ -50,14 +50,14 @@ export const productDetailSchema = z.object({
     })
     .optional(),
   rating: z.number().optional().nullable(),
-  url: z.url(),
+  url: z.string(),
 });
 
 export const categoryListResultSchema = z.object({
   categories: z.array(
     z.object({
       name: z.string(),
-      url: z.url(),
+      url: z.string(),
     }),
   ),
 });
@@ -123,11 +123,39 @@ const getTextResult = (output: unknown): string | null => {
 
 export const getKaprukaResultError = (output: unknown) => {
   const result = getTextResult(output)?.trim();
-  if (!result || !/^error\b/i.test(result)) {
+  if (!result) {
     return null;
   }
 
-  return result.replace(/^error\s*(?:\([^)]*\))?\s*:\s*/i, "");
+  // Explicit "error ..." prefix from MCP.
+  if (/^error\b/i.test(result)) {
+    return result.replace(/^error\s*(?:\([^)]*\))?\s*:\s*/i, "");
+  }
+
+  // Non-JSON text that isn't an empty-result pattern is an error message
+  // from MCP (e.g. "The product ID 'XYZ' is not valid."), since valid
+  // results are always JSON.
+  try {
+    JSON.parse(result);
+    return null;
+  } catch {
+    return EMPTY_RESULT_PATTERNS.some((pattern) => pattern.test(result))
+      ? null
+      : result;
+  }
+};
+
+const EMPTY_RESULT_PATTERNS = [
+  /^no\s+(?:matching\s+)?(?:products?|results?|categories?|cities?|orders?|delivery options?)\b/i,
+  /^(?:nothing|none)\s+(?:was\s+)?(?:found|available|matched)\b/i,
+];
+
+export const isKaprukaEmptyResult = (output: unknown) => {
+  const result = getTextResult(output)?.trim();
+
+  return Boolean(
+    result && EMPTY_RESULT_PATTERNS.some((pattern) => pattern.test(result)),
+  );
 };
 
 export const parseKaprukaResult = <Schema extends z.ZodType>(

@@ -15,13 +15,17 @@ import { useLocale, useTranslations } from "next-intl";
 import { ImageZoom } from "@/components/custom/image-zoom";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { followUpSuggestionsSchema } from "@/lib/ai/follow-up-suggestions";
+import {
+  type FollowUpSuggestion,
+  followUpSuggestionsSchema,
+} from "@/lib/ai/follow-up-suggestions";
 import {
   categoryListResultSchema,
   cityListResultSchema,
   deliveryResultSchema,
   getKaprukaResultError,
   getKaprukaResultRecord,
+  isKaprukaEmptyResult,
   type ProductPreview,
   parseKaprukaResult,
   productDetailSchema,
@@ -37,7 +41,6 @@ const GENERATIVE_TOOL_NAMES = new Set([
   "kapruka_list_delivery_cities",
   "kapruka_check_delivery",
   "kapruka_track_order",
-  "show_follow_up_suggestions",
 ]);
 
 export const getGenerativeToolName = (part: GenerativeToolPart) =>
@@ -50,6 +53,41 @@ export const isGenerativeToolPart = (part: GenerativeToolPart) =>
 export const isKaprukaResultToolPart = (part: GenerativeToolPart) =>
   getGenerativeToolName(part).startsWith("kapruka_") &&
   (part.state === "output-available" || part.state === "output-error");
+
+export const hasRenderableKaprukaResult = (part: GenerativeToolPart) => {
+  if (
+    part.state !== "output-available" ||
+    !getGenerativeToolName(part).startsWith("kapruka_")
+  ) {
+    return false;
+  }
+
+  switch (getGenerativeToolName(part)) {
+    case "kapruka_search_products":
+      return (
+        (parseKaprukaResult(part.output, productSearchResultSchema)?.results
+          .length ?? 0) > 0
+      );
+    case "kapruka_get_product":
+      return Boolean(parseKaprukaResult(part.output, productDetailSchema));
+    case "kapruka_list_categories":
+      return (
+        (parseKaprukaResult(part.output, categoryListResultSchema)?.categories
+          .length ?? 0) > 0
+      );
+    case "kapruka_list_delivery_cities":
+      return (
+        (parseKaprukaResult(part.output, cityListResultSchema)?.cities.length ??
+          0) > 0
+      );
+    case "kapruka_check_delivery":
+      return Boolean(parseKaprukaResult(part.output, deliveryResultSchema));
+    case "kapruka_track_order":
+      return Boolean(getKaprukaResultRecord(part.output));
+    default:
+      return false;
+  }
+};
 
 const Price = ({ amount, currency }: { amount: number; currency: string }) => {
   const locale = useLocale();
@@ -155,7 +193,7 @@ const ProductResults = ({ output }: { output: unknown }) => {
     return <ResultFallback empty />;
   }
 
-  const displayedProducts = result.results.slice(0, 6);
+  const displayedProducts = result.results;
 
   return (
     <section aria-label={t("products")} className="w-full space-y-3">
@@ -465,13 +503,14 @@ const ResultFallback = ({
 }) => {
   const t = useTranslations("Chat.generativeUI");
   const error = getKaprukaResultError(output);
+  const isEmpty = empty || isKaprukaEmptyResult(output);
 
   return (
     <div className="w-full rounded-3xl border border-border bg-card p-4">
       <p className="font-medium">
-        {empty ? t("noResults") : t("resultUnavailable")}
+        {isEmpty ? t("noResults") : t("resultUnavailable")}
       </p>
-      {error && (
+      {!isEmpty && error && (
         <p className="mt-1 text-xs leading-5 text-muted-foreground">{error}</p>
       )}
     </div>
@@ -481,18 +520,13 @@ const ResultFallback = ({
 const FollowUpSuggestions = ({
   disabled,
   onSelect,
-  output,
+  suggestions,
 }: {
   disabled: boolean;
   onSelect: (prompt: string) => void;
-  output: unknown;
+  suggestions: FollowUpSuggestion[];
 }) => {
   const t = useTranslations("Chat.generativeUI");
-  const result = followUpSuggestionsSchema.safeParse(output);
-
-  if (!result.success) {
-    return null;
-  }
 
   return (
     <section
@@ -501,7 +535,7 @@ const FollowUpSuggestions = ({
     >
       <p className="px-1 text-xs text-muted-foreground">{t("youCouldAlso")}</p>
       <div className="flex flex-wrap gap-2">
-        {result.data.suggestions.map((suggestion) => (
+        {suggestions.map((suggestion) => (
           <Button
             disabled={disabled}
             key={`${suggestion.label}-${suggestion.prompt}`}
@@ -518,6 +552,109 @@ const FollowUpSuggestions = ({
   );
 };
 
+const getRecord = (value: unknown) =>
+  value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+
+const LocalFollowUpSuggestions = ({
+  disabled,
+  input,
+  onSelect,
+  output,
+  toolName,
+}: {
+  disabled: boolean;
+  input: unknown;
+  onSelect: (prompt: string) => void;
+  output: unknown;
+  toolName: string;
+}) => {
+  const t = useTranslations("Chat.generativeUI.suggestions");
+  const params = getRecord(getRecord(input)?.params);
+  const query = typeof params?.q === "string" ? params.q : null;
+  const product = parseKaprukaResult(output, productDetailSchema);
+  const productId =
+    product?.id ??
+    (typeof params?.product_id === "string" ? params.product_id : null);
+  const suggestions: FollowUpSuggestion[] = [];
+
+  switch (toolName) {
+    case "kapruka_list_categories":
+      suggestions.push(
+        t.raw("whatsNew"),
+        t.raw("shopFlowers"),
+        t.raw("shopCakes"),
+        t.raw("shopChocolates"),
+      );
+      break;
+    case "kapruka_search_products": {
+      const searchResult = parseKaprukaResult(output, productSearchResultSchema);
+      if (searchResult?.next_cursor) {
+        suggestions.push(
+          query
+            ? {
+                label: t("moreForQuery.label"),
+                prompt: t("moreForQuery.prompt", { query }),
+              }
+            : t.raw("moreProducts"),
+        );
+      }
+      suggestions.push(t.raw("whatsNew"), t.raw("browseCategories"));
+      break;
+    }
+    case "kapruka_get_product":
+      if (product) {
+        suggestions.push({
+          label: t("findSimilar.label"),
+          prompt: t("findSimilar.prompt", { product: product.name }),
+        });
+      } else {
+        suggestions.push(t.raw("moreProducts"));
+      }
+      if (productId) {
+        suggestions.push({
+          label: t("checkProductDelivery.label"),
+          prompt: t("checkProductDelivery.prompt", { productId }),
+        });
+      }
+      suggestions.push(t.raw("browseCategories"));
+      break;
+    case "kapruka_list_delivery_cities":
+      suggestions.push(
+        t.raw("deliveryColombo"),
+        t.raw("deliveryKandy"),
+        t.raw("browseCategories"),
+      );
+      break;
+    case "kapruka_check_delivery":
+      suggestions.push(
+        t.raw("allDeliveryCities"),
+        t.raw("moreProducts"),
+        t.raw("browseCategories"),
+      );
+      break;
+    case "kapruka_track_order":
+      suggestions.push(
+        t.raw("trackAnother"),
+        t.raw("browseCategories"),
+        t.raw("moreProducts"),
+      );
+      break;
+    default:
+      return null;
+  }
+
+  const result = followUpSuggestionsSchema.safeParse({ suggestions });
+  return result.success ? (
+    <FollowUpSuggestions
+      disabled={disabled}
+      onSelect={onSelect}
+      suggestions={result.data.suggestions}
+    />
+  ) : null;
+};
+
 export const GenerativeToolResult = ({
   disabled,
   onSuggestionSelect,
@@ -527,38 +664,62 @@ export const GenerativeToolResult = ({
   onSuggestionSelect: (prompt: string) => void;
   part: GenerativeToolPart;
 }) => {
+  const toolName = getGenerativeToolName(part);
+
   if (part.state === "output-error") {
-    return <ResultFallback />;
+    return (
+      <div className="w-full space-y-3">
+        <ResultFallback />
+        <LocalFollowUpSuggestions
+          disabled={disabled}
+          input={part.input}
+          onSelect={onSuggestionSelect}
+          output={undefined}
+          toolName={toolName}
+        />
+      </div>
+    );
   }
 
   if (part.state !== "output-available") {
     return null;
   }
 
-  const toolName = getGenerativeToolName(part);
+  let result: React.ReactNode;
 
   switch (toolName) {
     case "kapruka_search_products":
-      return <ProductResults output={part.output} />;
+      result = <ProductResults output={part.output} />;
+      break;
     case "kapruka_get_product":
-      return <ProductDetails output={part.output} />;
+      result = <ProductDetails output={part.output} />;
+      break;
     case "kapruka_list_categories":
-      return <CategoryResults output={part.output} />;
+      result = <CategoryResults output={part.output} />;
+      break;
     case "kapruka_list_delivery_cities":
-      return <CityResults output={part.output} />;
+      result = <CityResults output={part.output} />;
+      break;
     case "kapruka_check_delivery":
-      return <DeliveryResult output={part.output} />;
+      result = <DeliveryResult output={part.output} />;
+      break;
     case "kapruka_track_order":
-      return <TrackingResult output={part.output} />;
-    case "show_follow_up_suggestions":
-      return (
-        <FollowUpSuggestions
-          disabled={disabled}
-          onSelect={onSuggestionSelect}
-          output={part.output}
-        />
-      );
+      result = <TrackingResult output={part.output} />;
+      break;
     default:
       return null;
   }
+
+  return (
+    <div className="w-full space-y-3">
+      {result}
+      <LocalFollowUpSuggestions
+        disabled={disabled}
+        input={part.input}
+        onSelect={onSuggestionSelect}
+        output={part.output}
+        toolName={toolName}
+      />
+    </div>
+  );
 };

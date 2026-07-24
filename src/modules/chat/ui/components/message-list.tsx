@@ -15,12 +15,12 @@ import {
 } from "@/components/ai-elements/message";
 import { ImageZoom } from "@/components/custom/image-zoom";
 import { Loader } from "@/components/custom/loader";
-import type { ChatUIMessage } from "@/lib/ai/chat-message";
+import { type ChatUIMessage, hasMeaningfulText } from "@/lib/ai/chat-message";
 import {
   GenerativeToolResult,
   getGenerativeToolName,
+  hasRenderableKaprukaResult,
   isGenerativeToolPart,
-  isKaprukaResultToolPart,
 } from "@/modules/chat/ui/components/generative-ui";
 
 interface MessageListProps {
@@ -29,6 +29,15 @@ interface MessageListProps {
   onSuggestionSelect: (prompt: string) => void;
   status: ChatStatus;
 }
+
+const isPresentationToolPart = (part: ChatUIMessage["parts"][number]) => {
+  if (!isToolUIPart(part)) {
+    return false;
+  }
+
+  const toolName = getGenerativeToolName(part);
+  return toolName.startsWith("kapruka_");
+};
 
 export const MessageList = ({
   errorMessage,
@@ -48,16 +57,27 @@ export const MessageList = ({
   );
 
   const latestMessage = messages.at(-1);
+  const isGenerating = status === "submitted" || status === "streaming";
+  const latestAssistantHasPresentationTool =
+    latestMessage?.role === "assistant" &&
+    latestMessage.parts.some(isPresentationToolPart);
   const latestAssistantHasContent =
     latestMessage?.role === "assistant" &&
     latestMessage.parts.some(
       (part) =>
-        (part.type === "text" && Boolean(part.text.trim())) ||
+        (part.type === "text" && hasMeaningfulText(part.text)) ||
         (isToolUIPart(part) && isGenerativeToolPart(part)),
     );
+  const holdLatestAssistant =
+    isGenerating && latestAssistantHasPresentationTool;
   const showWorkingIndicator =
     status === "submitted" ||
-    (status === "streaming" && !latestAssistantHasContent);
+    (status === "streaming" &&
+      (holdLatestAssistant || !latestAssistantHasContent));
+  const showEmptyResponse =
+    status === "ready" &&
+    latestMessage?.role === "assistant" &&
+    !latestAssistantHasContent;
 
   return (
     <Conversation
@@ -65,32 +85,29 @@ export const MessageList = ({
       className="size-full scrollbar-hide"
     >
       <ConversationContent className="mx-auto min-h-full w-full max-w-xl justify-end gap-5 px-0 py-6">
-        {messages.map((message) => {
+        {messages.map((message, messageIndex) => {
           const isUser = message.role === "user";
+          const isLatestMessage = messageIndex === messages.length - 1;
           const label = isUser ? t("userMessage") : t("assistantMessage");
-          const hasKaprukaResult = message.parts.some(
-            (part) => isToolUIPart(part) && isKaprukaResultToolPart(part),
+          const hasRenderableResult = message.parts.some(
+            (part) => isToolUIPart(part) && hasRenderableKaprukaResult(part),
           );
+
+          if (isLatestMessage && holdLatestAssistant) {
+            return null;
+          }
+
           const visibleParts = message.parts.filter(
             (part) =>
               part.type === "file" ||
               (part.type === "text" &&
-                Boolean(part.text) &&
-                !hasKaprukaResult) ||
+                (isUser
+                  ? Boolean(part.text.trim())
+                  : hasMeaningfulText(part.text)) &&
+                !hasRenderableResult) ||
               (isToolUIPart(part) && isGenerativeToolPart(part)),
           );
-          const orderedParts = [
-            ...visibleParts.filter(
-              (part) =>
-                !isToolUIPart(part) ||
-                getGenerativeToolName(part) !== "show_follow_up_suggestions",
-            ),
-            ...visibleParts.filter(
-              (part) =>
-                isToolUIPart(part) &&
-                getGenerativeToolName(part) === "show_follow_up_suggestions",
-            ),
-          ];
+          const orderedParts = visibleParts;
 
           if (orderedParts.length === 0) {
             return null;
@@ -104,7 +121,16 @@ export const MessageList = ({
               : null;
 
           return (
-            <Message aria-label={label} from={message.role} key={message.id}>
+            <Message
+              aria-label={label}
+              className={
+                isLatestMessage && !isUser
+                  ? "animate-in fade-in slide-in-from-bottom-1 duration-200"
+                  : undefined
+              }
+              from={message.role}
+              key={message.id}
+            >
               <MessageContent className="max-w-[85%] group-[.is-assistant]:w-full group-[.is-assistant]:max-w-full sm:max-w-[75%]">
                 {orderedParts.map((part, index) => {
                   if (part.type === "file") {
@@ -172,6 +198,16 @@ export const MessageList = ({
                 size={32}
                 variant="dots"
               />
+            </MessageContent>
+          </Message>
+        )}
+
+        {showEmptyResponse && (
+          <Message aria-label={t("assistantMessage")} from="assistant">
+            <MessageContent>
+              <p className="ml-2 text-sm text-destructive">
+                {t("emptyResponse")}
+              </p>
             </MessageContent>
           </Message>
         )}

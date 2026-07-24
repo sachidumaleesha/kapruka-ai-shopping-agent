@@ -52,6 +52,7 @@
     "attachedImage": "Attached image",
     "scrollToLatest": "Scroll to latest message",
     "requestError": "I couldn't complete that request. Please try again.",
+    "emptyResponse": "I couldn't produce a useful response. Please try again.",
     "thinking": "Checking Kapruka...",
     "toolParameters": "Parameters",
     "toolResult": "Result",
@@ -76,7 +77,61 @@
       "noResults": "No matching results found",
       "resultUnavailable": "This result is unavailable right now",
       "followUpSuggestions": "Suggested next steps",
-      "youCouldAlso": "You could also"
+      "youCouldAlso": "You could also",
+      "suggestions": {
+        "moreProducts": {
+          "label": "Show more products",
+          "prompt": "Show me more products."
+        },
+        "moreForQuery": {
+          "label": "Show more",
+          "prompt": "Show me more products for {query}."
+        },
+        "browseCategories": {
+          "label": "Browse categories",
+          "prompt": "Show me all shopping categories."
+        },
+        "whatsNew": {
+          "label": "What's new?",
+          "prompt": "Show me the newest products."
+        },
+        "shopFlowers": {
+          "label": "Shop for flowers",
+          "prompt": "Show me flower products."
+        },
+        "shopCakes": {
+          "label": "Shop for cakes",
+          "prompt": "Show me cake products."
+        },
+        "shopChocolates": {
+          "label": "Shop for chocolates",
+          "prompt": "Show me chocolate products."
+        },
+        "findSimilar": {
+          "label": "Find similar",
+          "prompt": "Find products similar to {product}."
+        },
+        "checkProductDelivery": {
+          "label": "Check delivery",
+          "prompt": "Check delivery options for product {productId}."
+        },
+        "deliveryColombo": {
+          "label": "Delivery to Colombo",
+          "prompt": "Check delivery availability to Colombo."
+        },
+        "deliveryKandy": {
+          "label": "Delivery to Kandy",
+          "prompt": "Check delivery availability to Kandy."
+        },
+        "allDeliveryCities": {
+          "label": "Other delivery cities",
+          "prompt": "Show me all available delivery cities."
+        },
+        "trackAnother": {
+          "label": "Track another order",
+          "prompt": "Help me track another order."
+        }
+      }
     },
     "tools": {
       "listCategories": "Browse categories",

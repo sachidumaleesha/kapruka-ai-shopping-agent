@@ -52,6 +52,7 @@
     "attachedImage": "අමුණා ඇති පින්තූරය",
     "scrollToLatest": "නවතම පණිවිඩයට යන්න",
     "requestError": "ඉල්ලීම සම්පූර්ණ කිරීමට නොහැකි විය. නැවත උත්සාහ කරන්න.",
+    "emptyResponse": "ප්‍රයෝජනවත් පිළිතුරක් ලබා දීමට නොහැකි විය. කරුණාකර නැවත උත්සාහ කරන්න.",
     "thinking": "Kapruka පරීක්ෂා කරමින්...",
     "toolParameters": "පරාමිති",
     "toolResult": "ප්‍රතිඵලය",
@@ -76,7 +77,61 @@
       "noResults": "ගැළපෙන ප්‍රතිඵල හමු නොවීය",
       "resultUnavailable": "මෙම ප්‍රතිඵලය දැන් ලබා ගත නොහැක",
       "followUpSuggestions": "ඊළඟ පියවර යෝජනා",
-      "youCouldAlso": "ඔබට තවදුරටත්"
+      "youCouldAlso": "ඔබට තවදුරටත්",
+      "suggestions": {
+        "moreProducts": {
+          "label": "තවත් නිෂ්පාදන",
+          "prompt": "තවත් නිෂ්පාදන පෙන්වන්න."
+        },
+        "moreForQuery": {
+          "label": "තවත් පෙන්වන්න",
+          "prompt": "{query} සඳහා තවත් නිෂ්පාදන පෙන්වන්න."
+        },
+        "browseCategories": {
+          "label": "කාණ්ඩ බලන්න",
+          "prompt": "සියලුම සාප්පු කාණ්ඩ පෙන්වන්න."
+        },
+        "whatsNew": {
+          "label": "අලුත් මොනවාද?",
+          "prompt": "නවතම නිෂ්පාදන පෙන්වන්න."
+        },
+        "shopFlowers": {
+          "label": "මල් සොයන්න",
+          "prompt": "මල් නිෂ්පාදන පෙන්වන්න."
+        },
+        "shopCakes": {
+          "label": "කේක් සොයන්න",
+          "prompt": "කේක් නිෂ්පාදන පෙන්වන්න."
+        },
+        "shopChocolates": {
+          "label": "චොකලට් සොයන්න",
+          "prompt": "චොකලට් නිෂ්පාදන පෙන්වන්න."
+        },
+        "findSimilar": {
+          "label": "සමාන ඒවා සොයන්න",
+          "prompt": "{product} ට සමාන නිෂ්පාදන සොයන්න."
+        },
+        "checkProductDelivery": {
+          "label": "බෙදාහැරීම බලන්න",
+          "prompt": "{productId} නිෂ්පාදනය සඳහා බෙදාහැරීමේ විකල්ප පරීක්ෂා කරන්න."
+        },
+        "deliveryColombo": {
+          "label": "කොළඹට බෙදාහැරීම",
+          "prompt": "කොළඹට බෙදාහැරීම ලබා ගත හැකිද පරීක්ෂා කරන්න."
+        },
+        "deliveryKandy": {
+          "label": "මහනුවරට බෙදාහැරීම",
+          "prompt": "මහනුවරට බෙදාහැරීම ලබා ගත හැකිද පරීක්ෂා කරන්න."
+        },
+        "allDeliveryCities": {
+          "label": "වෙනත් බෙදාහැරීමේ නගර",
+          "prompt": "ලබා ගත හැකි සියලුම බෙදාහැරීමේ නගර පෙන්වන්න."
+        },
+        "trackAnother": {
+          "label": "තවත් ඇණවුමක්",
+          "prompt": "තවත් ඇණවුමක් නිරීක්ෂණය කිරීමට උදව් කරන්න."
+        }
+      }
     },
     "tools": {
       "listCategories": "කාණ්ඩ බලන්න",
