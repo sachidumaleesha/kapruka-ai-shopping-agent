@@ -162,6 +162,24 @@ export const parseKaprukaResult = <Schema extends z.ZodType>(
   output: unknown,
   schema: Schema,
 ): z.infer<Schema> | null => {
+  if (!output) {
+    return null;
+  }
+
+  const directValidation = schema.safeParse(output);
+  if (directValidation.success) {
+    return directValidation.data;
+  }
+
+  if (typeof output === "object" && output !== null && "value" in output) {
+    const valueValidation = schema.safeParse(
+      (output as Record<string, unknown>).value,
+    );
+    if (valueValidation.success) {
+      return valueValidation.data;
+    }
+  }
+
   const result = getTextResult(output);
   if (!result || /^error\b/i.test(result.trim())) {
     return null;

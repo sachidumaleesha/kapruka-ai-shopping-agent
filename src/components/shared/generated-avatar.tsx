@@ -1,9 +1,8 @@
 import { Avatar as DiceBearAvatar, Style } from "@dicebear/core";
-
-import { cn } from "@/lib/utils";
 import glassDefinition from "@dicebear/styles/glass.json";
 import initialsDefinition from "@dicebear/styles/initials.json";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { cn } from "@/lib/utils";
 
 interface GeneratedAvatarProps {
   seed: string;

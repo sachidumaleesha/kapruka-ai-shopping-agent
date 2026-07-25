@@ -16,12 +16,14 @@ import {
 import { ImageZoom } from "@/components/custom/image-zoom";
 import { Loader } from "@/components/custom/loader";
 import { type ChatUIMessage, hasMeaningfulText } from "@/lib/ai/chat-message";
+import { isKaprukaOpenUIResponse } from "@/lib/openui/kapruka-library";
 import {
   GenerativeToolResult,
   getGenerativeToolName,
   hasRenderableKaprukaResult,
   isGenerativeToolPart,
 } from "@/modules/chat/ui/components/generative-ui";
+import { AdaptiveUI } from "@/modules/chat/ui/components/openui-adaptive-ui";
 
 interface MessageListProps {
   errorMessage?: string;
@@ -61,6 +63,16 @@ export const MessageList = ({
   const latestAssistantHasPresentationTool =
     latestMessage?.role === "assistant" &&
     latestMessage.parts.some(isPresentationToolPart);
+  const latestAssistantOpenUIResponse =
+    latestMessage?.role === "assistant"
+      ? latestMessage.parts
+          .filter((part) => part.type === "text")
+          .map((part) => part.text)
+          .join("\n")
+      : "";
+  const latestAssistantHasOpenUI = isKaprukaOpenUIResponse(
+    latestAssistantOpenUIResponse,
+  );
   const latestAssistantHasContent =
     latestMessage?.role === "assistant" &&
     latestMessage.parts.some(
@@ -69,7 +81,9 @@ export const MessageList = ({
         (isToolUIPart(part) && isGenerativeToolPart(part)),
     );
   const holdLatestAssistant =
-    isGenerating && latestAssistantHasPresentationTool;
+    isGenerating &&
+    latestAssistantHasPresentationTool &&
+    !latestAssistantHasOpenUI;
   const showWorkingIndicator =
     status === "submitted" ||
     (status === "streaming" &&
@@ -89,6 +103,14 @@ export const MessageList = ({
           const isUser = message.role === "user";
           const isLatestMessage = messageIndex === messages.length - 1;
           const label = isUser ? t("userMessage") : t("assistantMessage");
+          const openUIResponse = isUser
+            ? ""
+            : message.parts
+                .filter((part) => part.type === "text")
+                .map((part) => part.text)
+                .join("\n");
+          const hasOpenUIResponse =
+            !isUser && isKaprukaOpenUIResponse(openUIResponse);
           const hasRenderableResult = message.parts.some(
             (part) => isToolUIPart(part) && hasRenderableKaprukaResult(part),
           );
@@ -104,12 +126,15 @@ export const MessageList = ({
                 (isUser
                   ? Boolean(part.text.trim())
                   : hasMeaningfulText(part.text)) &&
-                !hasRenderableResult) ||
-              (isToolUIPart(part) && isGenerativeToolPart(part)),
+                !hasRenderableResult &&
+                !hasOpenUIResponse) ||
+              (isToolUIPart(part) &&
+                isGenerativeToolPart(part) &&
+                !hasOpenUIResponse),
           );
           const orderedParts = visibleParts;
 
-          if (orderedParts.length === 0) {
+          if (orderedParts.length === 0 && !hasOpenUIResponse) {
             return null;
           }
 
@@ -175,6 +200,28 @@ export const MessageList = ({
 
                   return null;
                 })}
+
+                {hasOpenUIResponse && (
+                  <AdaptiveUI
+                    fallback={
+                      <div className="w-full space-y-3">
+                        {message.parts.map((part) =>
+                          isToolUIPart(part) && isGenerativeToolPart(part) ? (
+                            <GenerativeToolResult
+                              disabled={status !== "ready"}
+                              key={part.toolCallId}
+                              onSuggestionSelect={onSuggestionSelect}
+                              part={part}
+                            />
+                          ) : null,
+                        )}
+                      </div>
+                    }
+                    isStreaming={isLatestMessage && isGenerating}
+                    onAction={onSuggestionSelect}
+                    response={openUIResponse}
+                  />
+                )}
               </MessageContent>
 
               {formattedTime && (

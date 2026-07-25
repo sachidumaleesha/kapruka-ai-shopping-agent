@@ -18,6 +18,8 @@
     "@dicebear/styles": "^10.2.0",
     "@hugeicons/core-free-icons": "^4.2.2",
     "@hugeicons/react": "^1.1.9",
+    "@openuidev/lang-core": "^0.2.10",
+    "@openuidev/react-lang": "^0.2.9",
     "@shadcn/react": "^0.2.1",
     "@streamdown/cjk": "^1.0.3",
     "@streamdown/code": "^1.1.1",

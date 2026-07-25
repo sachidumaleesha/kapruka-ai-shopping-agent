@@ -1,10 +1,8 @@
+import { ArrowLeft01Icon } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
-
 import { Button } from "@/components/ui/button";
-
-import { HugeiconsIcon } from "@hugeicons/react";
-import { ArrowLeft01Icon } from "@hugeicons/core-free-icons";
 
 export default async function NotFound() {
   const t = await getTranslations("NotFound");

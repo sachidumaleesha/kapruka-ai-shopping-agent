@@ -68,10 +68,22 @@ const toStoredMessages = (messages: ChatUIMessage[]): StoredChatMessage[] =>
 
         if (
           isToolUIPart(part) &&
-          part.type !== "dynamic-tool" &&
           isGenerativeToolPart(part) &&
           part.state === "output-available"
         ) {
+          if (part.type === "dynamic-tool") {
+            return [
+              {
+                input: part.input,
+                output: part.output,
+                state: part.state,
+                toolCallId: part.toolCallId,
+                toolName: part.toolName,
+                type: "dynamic-tool" as const,
+              },
+            ];
+          }
+
           return [
             {
               input: part.input,
@@ -85,10 +97,22 @@ const toStoredMessages = (messages: ChatUIMessage[]): StoredChatMessage[] =>
 
         if (
           isToolUIPart(part) &&
-          part.type !== "dynamic-tool" &&
           isGenerativeToolPart(part) &&
           part.state === "output-error"
         ) {
+          if (part.type === "dynamic-tool") {
+            return [
+              {
+                errorText: part.errorText,
+                input: part.input,
+                state: part.state,
+                toolCallId: part.toolCallId,
+                toolName: part.toolName,
+                type: "dynamic-tool" as const,
+              },
+            ];
+          }
+
           return [
             {
               errorText: part.errorText,

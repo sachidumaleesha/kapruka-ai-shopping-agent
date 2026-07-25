@@ -589,7 +589,10 @@ const LocalFollowUpSuggestions = ({
       );
       break;
     case "kapruka_search_products": {
-      const searchResult = parseKaprukaResult(output, productSearchResultSchema);
+      const searchResult = parseKaprukaResult(
+        output,
+        productSearchResultSchema,
+      );
       if (searchResult?.next_cursor) {
         suggestions.push(
           query

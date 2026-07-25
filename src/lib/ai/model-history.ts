@@ -127,29 +127,24 @@ export const getModelVisibleMessages = (
       return [message];
     }
 
-    const summaries = message.parts
-      .map(getKaprukaResultSummary)
-      .filter((summary): summary is string => Boolean(summary));
-    const hasKaprukaTool = message.parts.some((part) =>
-      getToolName(part)?.startsWith("kapruka_"),
-    );
-    const text = hasKaprukaTool
-      ? summaries.join("\n")
-      : message.parts
-          .flatMap((part) =>
-            part.type === "text" && hasMeaningfulText(part.text)
-              ? [part.text]
-              : [],
-          )
-          .join("\n")
-          .trim();
+    const visibleParts = message.parts.filter((part) => {
+      if (isToolUIPart(part)) {
+        return true;
+      }
+      if (part.type === "text") {
+        return hasMeaningfulText(part.text);
+      }
+      return false;
+    });
 
-    return text
-      ? [
-          {
-            ...message,
-            parts: [{ type: "text", text }],
-          },
-        ]
-      : [];
+    if (visibleParts.length === 0) {
+      return [];
+    }
+
+    return [
+      {
+        ...message,
+        parts: visibleParts,
+      },
+    ];
   });

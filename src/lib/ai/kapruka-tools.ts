@@ -30,7 +30,7 @@ export const kaprukaToolSchemas = {
   kapruka_search_products: {
     inputSchema: z.object({
       params: z.object({
-        q: z.string().min(3).max(200),
+        q: z.string().max(200).nullable().optional().default(""),
         category: z.string().nullable().optional(),
         limit: z.number().int().min(1).max(20).default(6),
         cursor: z.string().nullable().optional(),
